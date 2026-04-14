@@ -67,4 +67,4 @@
 - [x] Integrate browser Geolocation API on Submit Issue page
 - [x] Integrate browser Geolocation API on Map page
 - [x] Write tests for protected voting system
-- [ ] Initialize Git repository and push to GitHub
+- [x] Initialize Git repository and push to GitHub (via Management UI)
