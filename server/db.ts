@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, issues, InsertIssue, issueImages, userVotes } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,248 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Issue query helpers
+
+export async function getIssues(limit: number = 50, offset: number = 0) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get issues: database not available");
+    return [];
+  }
+
+  try {
+    const result = await db
+      .select()
+      .from(issues)
+      .orderBy(issues.createdAt)
+      .limit(limit)
+      .offset(offset);
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to get issues:", error);
+    return [];
+  }
+}
+
+export async function getIssueById(id: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get issue: database not available");
+    return undefined;
+  }
+
+  try {
+    const result = await db.select().from(issues).where(eq(issues.id, id)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (error) {
+    console.error("[Database] Failed to get issue by id:", error);
+    return undefined;
+  }
+}
+
+export async function getIssuesByUser(userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get user issues: database not available");
+    return [];
+  }
+
+  try {
+    const result = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.userId, userId))
+      .orderBy(issues.createdAt);
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to get user issues:", error);
+    return [];
+  }
+}
+
+export async function getIssueCount() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get issue count: database not available");
+    return 0;
+  }
+
+  try {
+    const result = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(issues);
+    return result[0]?.count ?? 0;
+  } catch (error) {
+    console.error("[Database] Failed to get issue count:", error);
+    return 0;
+  }
+}
+
+export async function createIssue(data: InsertIssue) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    const result = await db.insert(issues).values(data);
+    // Return the created issue by fetching it
+    const insertedId = result[0].insertId;
+    return await getIssueById(Number(insertedId));
+  } catch (error) {
+    console.error("[Database] Failed to create issue:", error);
+    throw error;
+  }
+}
+
+export async function updateIssue(id: number, data: Partial<InsertIssue>) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    await db.update(issues).set(data).where(eq(issues.id, id));
+    return await getIssueById(id);
+  } catch (error) {
+    console.error("[Database] Failed to update issue:", error);
+    throw error;
+  }
+}
+
+export async function deleteIssue(id: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    await db.delete(issues).where(eq(issues.id, id));
+    return true;
+  } catch (error) {
+    console.error("[Database] Failed to delete issue:", error);
+    throw error;
+  }
+}
+
+export async function upvoteIssue(id: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    await db
+      .update(issues)
+      .set({ upvotes: sql`${issues.upvotes} + 1` })
+      .where(eq(issues.id, id));
+    return await getIssueById(id);
+  } catch (error) {
+    console.error("[Database] Failed to upvote issue:", error);
+    throw error;
+  }
+}
+
+export async function getIssueImages(issueId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get issue images: database not available");
+    return [];
+  }
+
+  try {
+    const result = await db
+      .select()
+      .from(issueImages)
+      .where(eq(issueImages.issueId, issueId));
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to get issue images:", error);
+    return [];
+  }
+}
+
+export async function addIssueImage(issueId: number, imageUrl: string) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    const result = await db.insert(issueImages).values({ issueId, imageUrl });
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to add issue image:", error);
+    throw error;
+  }
+}
+
+// User votes query helpers
+
+export async function hasUserVoted(userId: number, issueId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot check vote: database not available");
+    return false;
+  }
+
+  try {
+    const result = await db
+      .select()
+      .from(userVotes)
+      .where(and(eq(userVotes.userId, userId), eq(userVotes.issueId, issueId)))
+      .limit(1);
+    return result.length > 0;
+  } catch (error) {
+    console.error("[Database] Failed to check vote:", error);
+    return false;
+  }
+}
+
+export async function addUserVote(userId: number, issueId: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    // Check if vote already exists
+    const existing = await hasUserVoted(userId, issueId);
+    if (existing) {
+      throw new Error("User has already voted on this issue");
+    }
+
+    // Add the vote
+    await db.insert(userVotes).values({ userId, issueId });
+
+    // Increment the upvotes count
+    await db
+      .update(issues)
+      .set({ upvotes: sql`${issues.upvotes} + 1` })
+      .where(eq(issues.id, issueId));
+
+    return await getIssueById(issueId);
+  } catch (error) {
+    console.error("[Database] Failed to add vote:", error);
+    throw error;
+  }
+}
+
+export async function getUserVotes(userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get user votes: database not available");
+    return [];
+  }
+
+  try {
+    const result = await db
+      .select()
+      .from(userVotes)
+      .where(eq(userVotes.userId, userId));
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to get user votes:", error);
+    return [];
+  }
+}

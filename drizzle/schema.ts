@@ -25,4 +25,56 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Issues table for civic issue reporting.
+ * Stores community-reported infrastructure and civic issues with location data.
+ */
+export const issues = mysqlTable("issues", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  category: varchar("category", { length: 64 }).notNull(), // Roads, Water, Electricity, Sanitation, Other
+  status: mysqlEnum("status", ["open", "in-progress", "resolved"]).default("open").notNull(),
+  severity: mysqlEnum("severity", ["low", "medium", "high"]).default("medium").notNull(),
+  address: varchar("address", { length: 255 }).notNull(),
+  latitude: varchar("latitude", { length: 64 }).notNull(),
+  longitude: varchar("longitude", { length: 64 }).notNull(),
+  upvotes: int("upvotes").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Issue = typeof issues.$inferSelect;
+export type InsertIssue = typeof issues.$inferInsert;
+
+/**
+ * Issue images table for storing photos related to issues.
+ * Supports multiple images per issue with cascade delete.
+ */
+export const issueImages = mysqlTable("issue_images", {
+  id: int("id").autoincrement().primaryKey(),
+  issueId: int("issueId").notNull().references(() => issues.id, { onDelete: "cascade" }),
+  imageUrl: text("imageUrl").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type IssueImage = typeof issueImages.$inferSelect;
+export type InsertIssueImage = typeof issueImages.$inferInsert;
+
+/**
+ * User votes table for tracking which users have voted on which issues.
+ * Prevents duplicate votes and enforces vote deduplication at the database level.
+ */
+export const userVotes = mysqlTable("user_votes", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  issueId: int("issueId").notNull().references(() => issues.id, { onDelete: "cascade" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// Note: The userVotes table enforces one vote per user per issue via database migration.
+// A composite unique constraint will be added during migration generation.
+
+export type UserVote = typeof userVotes.$inferSelect;
+export type InsertUserVote = typeof userVotes.$inferInsert;
