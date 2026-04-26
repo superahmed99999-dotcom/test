@@ -42,9 +42,10 @@ const statusIcons = {
 interface MapEventsProps {
   onLocationSelect?: (location: { lat: number; lng: number }) => void;
   onMapReady?: (map: L.Map) => void;
+  onLocationFound?: (lat: number, lng: number) => void;
 }
 
-function MapEvents({ onLocationSelect, onMapReady }: MapEventsProps) {
+function MapEvents({ onLocationSelect, onMapReady, onLocationFound }: MapEventsProps) {
   const map = useMap();
 
   useEffect(() => {
@@ -57,6 +58,11 @@ function MapEvents({ onLocationSelect, onMapReady }: MapEventsProps) {
     click(e) {
       if (onLocationSelect) {
         onLocationSelect({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    },
+    locationfound(e) {
+      if (onLocationFound) {
+        onLocationFound(e.latlng.lat, e.latlng.lng);
       }
     },
   });
@@ -95,6 +101,7 @@ export function MapView({
   onIssueClick,
 }: MapViewProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // Automatic geolocation on mount
   useEffect(() => {
@@ -132,6 +139,7 @@ export function MapView({
         
         <MapEvents 
           onLocationSelect={onLocationSelect} 
+          onLocationFound={(lat, lng) => setUserLocation({ lat, lng })}
           onMapReady={(map) => {
             setMapInstance(map);
             if (onMapReady) onMapReady(map);
@@ -139,6 +147,13 @@ export function MapView({
         />
 
         <MapUpdater center={[initialCenter.lat, initialCenter.lng]} zoom={initialZoom} />
+
+        {/* User's current position marker */}
+        {userLocation && (
+          <Marker position={[userLocation.lat, userLocation.lng]}>
+            <Popup>You are here</Popup>
+          </Marker>
+        )}
 
         {/* Render markers for issues */}
         {issues.map((issue) => (
