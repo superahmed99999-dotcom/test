@@ -22,9 +22,51 @@ export default function SubmitIssue() {
   const [category, setCategory] = useState("Roads");
   const [severity, setSeverity] = useState<"low" | "medium" | "high">("medium");
 
+  const [imageUrl, setImageUrl] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+
   const createIssueMutation = trpc.issues.create.useMutation();
 
   const categories = ["Roads", "Water", "Electricity", "Sanitation", "Other"];
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size should be less than 5MB");
+      return;
+    }
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("Upload failed");
+
+      const data = await response.json();
+      setImageUrl(data.url);
+      toast.success("Image uploaded successfully!");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload image");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
@@ -97,6 +139,7 @@ export default function SubmitIssue() {
         address: address.trim() || "Unknown Location",
         latitude: selectedLocation.lat.toString(),
         longitude: selectedLocation.lng.toString(),
+        imageUrl: imageUrl || undefined,
       });
 
       toast.success("Issue reported successfully!");
@@ -253,6 +296,46 @@ export default function SubmitIssue() {
                           {sev.toUpperCase()}
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
+                      Evidence Photo
+                    </label>
+                    <div className="flex flex-col gap-4">
+                      {imageUrl ? (
+                        <div className="relative group rounded-2xl overflow-hidden border-2 border-blue-100 aspect-video bg-slate-50">
+                          <img 
+                            src={imageUrl} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setImageUrl("")}
+                            className="absolute top-2 right-2 bg-white/90 backdrop-blur shadow-lg p-2 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all"
+                          >
+                            <AlertCircle className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${isUploading ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200 hover:bg-blue-50/30 hover:border-blue-300'}`}>
+                          {isUploading ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="h-8 w-8 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+                              <span className="text-xs font-bold text-slate-400">UPLOADING...</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <Plus className="w-8 h-8 text-blue-500 mb-2" />
+                              <p className="text-sm font-bold text-slate-600">Click to upload photo</p>
+                              <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">PNG, JPG or WEBP (MAX. 5MB)</p>
+                            </div>
+                          )}
+                          <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploading} />
+                        </label>
+                      )}
                     </div>
                   </div>
 

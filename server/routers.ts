@@ -96,6 +96,7 @@ export const appRouter = router({
           address: z.string().min(1).max(255),
           latitude: z.string().min(1).max(64),
           longitude: z.string().min(1).max(64),
+          imageUrl: z.string().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -123,6 +124,7 @@ export const appRouter = router({
             address: input.address,
             latitude: input.latitude,
             longitude: input.longitude,
+            imageUrl: input.imageUrl,
             riskLevel: riskAnalysis.riskLevel,
             isHidden: isCritical ? 1 : 0,
             status: "open",

@@ -123,9 +123,18 @@ export default function IssueDetail() {
           {/* Main Content */}
           <div className="md:col-span-2 space-y-8">
             {/* Description */}
-            <Card className="border-none bg-white">
+            <Card className="border-none bg-white overflow-hidden">
               <CardContent className="p-6">
                 <h2 className="text-xl font-bold text-slate-900 mb-4">Description</h2>
+                {issue.imageUrl && (
+                  <div className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-slate-100">
+                    <img 
+                      src={issue.imageUrl} 
+                      alt={issue.title} 
+                      className="w-full h-auto max-h-[500px] object-cover"
+                    />
+                  </div>
+                )}
                 <p className="text-slate-600 leading-relaxed">{issue.description}</p>
               </CardContent>
             </Card>
