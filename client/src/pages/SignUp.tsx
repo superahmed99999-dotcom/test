@@ -37,7 +37,13 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      await sendOtpMutation.mutateAsync({ email });
+      const result = await sendOtpMutation.mutateAsync({ email }) as any;
+      
+      if (result && result.success === false) {
+        toast.error(result.error || "Failed to send OTP. Check your SMTP settings.");
+        return;
+      }
+
       toast.success("OTP sent to your email!");
       setTimeLeft(60);
       setStep("otp");
