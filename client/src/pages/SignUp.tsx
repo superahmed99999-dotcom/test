@@ -42,6 +42,11 @@ export default function SignUp() {
       
       if (result && result.success === false) {
         toast.error(result.error || "Failed to send OTP. Check your SMTP settings.");
+        // Even on failure, if we're in debug mode (logging codes to console), allow moving to OTP step
+        if (result.error?.includes("Check Railway Logs")) {
+          setStep("otp");
+          setTimeLeft(60);
+        }
         return;
       }
 
