@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, LayersControl } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -112,21 +112,17 @@ function MapEvents({ onLocationSelect, onMapReady, onLocationFound }: MapEventsP
 // Component to update map center/zoom when props change
 function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
+  const hasRun = useRef(false);
+
   useEffect(() => {
-    // Only set view if it's significantly different from current to avoid loops
-    const currentCenter = map.getCenter();
-    const isDifferent = Math.abs(currentCenter.lat - center[0]) > 0.001 || 
-                      Math.abs(currentCenter.lng - center[1]) > 0.001;
-    
-    if (isDifferent) {
+    // Only run if the center/zoom props actually changed or it's the first run
+    // This prevents fighting with user interaction or geolocation
+    if (!hasRun.current) {
       map.setView(center, zoom);
+      hasRun.current = true;
     }
-    
-    // Fix for the "grey map" issue
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
   }, [center, zoom, map]);
+
   return null;
 }
 
