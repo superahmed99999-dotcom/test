@@ -68,6 +68,7 @@ async function startServer() {
 
   server.listen(port, "0.0.0.0", () => {
     console.log(`Server running on port ${port}`);
+    console.log("🚀 CivicPulse Started with Leaflet Map System (No Google Maps API Required)");
   });
 }
 
