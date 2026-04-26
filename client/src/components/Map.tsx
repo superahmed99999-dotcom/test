@@ -52,6 +52,13 @@ function MapEvents({ onLocationSelect, onMapReady, onLocationFound }: MapEventsP
     if (onMapReady) {
       onMapReady(map);
     }
+    
+    // Automatically prompt for location when map loads
+    map.locate({ 
+      setView: true, 
+      maxZoom: 15,
+      enableHighAccuracy: true 
+    });
   }, [map, onMapReady]);
 
   useMapEvents({
