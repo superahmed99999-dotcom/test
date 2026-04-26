@@ -24,6 +24,7 @@ export default function SubmitIssue() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Roads");
   const [severity, setSeverity] = useState<"low" | "medium" | "high">("medium");
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   const [imageUrl, setImageUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -72,6 +73,7 @@ export default function SubmitIssue() {
   };
 
   const reverseGeocode = async (lat: number, lng: number) => {
+    setIsGeocoding(true);
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
       const data = await response.json();
@@ -79,6 +81,8 @@ export default function SubmitIssue() {
     } catch (error) {
       console.error("Geocoding error:", error);
       setAddress("Unknown Location");
+    } finally {
+      setIsGeocoding(false);
     }
   };
 
@@ -223,7 +227,7 @@ export default function SubmitIssue() {
                           Verified
                         </Badge>
                       </div>
-                      <p className="text-slate-600 mt-2 text-sm leading-relaxed">{address || "Fetching address..."}</p>
+                      <p className="text-slate-600 mt-2 text-sm leading-relaxed">{isGeocoding ? "Fetching accurate address..." : (address || "Location selected")}</p>
                       <div className="flex gap-4 mt-3 text-[10px] font-mono text-slate-400">
                         <span>LAT: {selectedLocation?.lat.toFixed(6)}</span>
                         <span>LNG: {selectedLocation?.lng.toFixed(6)}</span>

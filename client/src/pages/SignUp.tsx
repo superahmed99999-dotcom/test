@@ -36,8 +36,9 @@ export default function SignUp() {
     }
 
     setLoading(true);
+    const trimmedEmail = email.trim();
     try {
-      const result = await sendOtpMutation.mutateAsync({ email }) as any;
+      const result = await sendOtpMutation.mutateAsync({ email: trimmedEmail }) as any;
       
       if (result && result.success === false) {
         toast.error(result.error || "Failed to send OTP. Check your SMTP settings.");
@@ -64,7 +65,7 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      const result = await verifyOtpMutation.mutateAsync({ email, code: otp });
+      const result = await verifyOtpMutation.mutateAsync({ email: email.trim(), code: otp });
       if (result.success) {
         toast.success("Email verified! You can now sign in.");
         setStep("success");
