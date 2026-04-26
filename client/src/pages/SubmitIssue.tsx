@@ -11,6 +11,9 @@ import { MapView } from "@/components/Map";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 
+const INITIAL_CENTER = { lat: 30.0444, lng: 31.2357 };
+const INITIAL_ZOOM = 14;
+
 export default function SubmitIssue() {
   const [, navigate] = useLocation();
   const { isAuthenticated } = useAuth();
@@ -184,8 +187,8 @@ export default function SubmitIssue() {
                 <div className="relative h-[450px] lg:h-[calc(100vh-280px)] min-h-[400px]">
                   <MapView
                     className="w-full h-full"
-                    initialCenter={{ lat: 30.0444, lng: 31.2357 }} // Cairo
-                    initialZoom={14}
+                    initialCenter={INITIAL_CENTER}
+                    initialZoom={INITIAL_ZOOM}
                     onMapReady={handleMapReady}
                     selectedLocation={selectedLocation}
                     onLocationSelect={handleLocationSelect}
