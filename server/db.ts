@@ -126,8 +126,23 @@ export async function getUserByOpenId(openId: string) {
   }
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
   return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateUserSettings(userId: number, data: { language?: string; notificationSettings?: string }) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    await db.update(users).set(data).where(eq(users.id, userId));
+    const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    return result[0];
+  } catch (error) {
+    console.error("[Database] Failed to update user settings:", error);
+    throw error;
+  }
 }
 
 // Issue query helpers

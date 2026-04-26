@@ -21,6 +21,7 @@ import {
   unhideIssue,
   getHiddenIssues,
   upsertUser,
+  updateUserSettings,
 } from "./db";
 import { createAndSendOtp, verifyOtp } from "./services/otpService";
 import { analyzeIssueRisk, shouldMarkAsCritical } from "./services/aiRiskService";
@@ -46,6 +47,14 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    updateSettings: protectedProcedure
+      .input(z.object({
+        language: z.string().optional(),
+        notificationSettings: z.string().optional()
+      }))
+      .mutation(async ({ input, ctx }) => {
+        return await updateUserSettings(ctx.user.id, input);
+      }),
   }),
 
   issues: router({

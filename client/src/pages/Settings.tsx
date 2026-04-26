@@ -1,24 +1,61 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, Globe, User, Shield, Moon } from "lucide-react";
+import { Bell, Globe, User, Shield, Moon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { trpc } from "@/_core/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function Settings() {
+  const { user } = useAuth();
   const [language, setLanguage] = useState("en");
   const [notifications, setNotifications] = useState({
     statusChanges: true,
     newComments: true,
-    communityAlerts: false,
     emailDigest: true
   });
 
-  const handleSave = () => {
-    toast.success("Settings saved successfully!");
+  const updateSettings = trpc.auth.updateSettings.useMutation({
+    onSuccess: () => {
+      toast.success("Settings saved to your account!");
+    },
+    onError: (err) => {
+      toast.error(`Failed to save: ${err.message}`);
+    }
+  });
+
+  // Initialize from user data
+  useEffect(() => {
+    if (user) {
+      if ((user as any).language) setLanguage((user as any).language);
+      if ((user as any).notificationSettings) {
+        try {
+          const parsed = JSON.parse((user as any).notificationSettings);
+          setNotifications(parsed);
+        } catch (e) {
+          console.error("Failed to parse notification settings", e);
+        }
+      }
+    }
+  }, [user]);
+
+  const handleSave = async () => {
+    await updateSettings.mutateAsync({
+      language,
+      notificationSettings: JSON.stringify(notifications)
+    });
   };
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -151,7 +188,10 @@ export default function Settings() {
 
             <div className="flex justify-end gap-4 pt-4">
               <Button variant="outline">Cancel</Button>
-              <Button onClick={handleSave}>Save Changes</Button>
+              <Button onClick={handleSave} disabled={updateSettings.isPending}>
+                {updateSettings.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
             </div>
           </div>
         </div>

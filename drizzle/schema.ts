@@ -20,6 +20,8 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  language: varchar("language", { length: 10 }).default("en").notNull(),
+  notificationSettings: text("notificationSettings").default('{"statusChanges":true,"newComments":true,"emailDigest":true}').notNull(),
 });
 
 export type User = typeof users.$inferSelect;
