@@ -301,5 +301,4 @@ export default function SubmitIssue() {
       </div>
     </div>
   );
-  );
 }
