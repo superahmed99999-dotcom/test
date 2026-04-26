@@ -45,6 +45,36 @@ interface MapEventsProps {
   onLocationFound?: (lat: number, lng: number) => void;
 }
 
+function MapResizer() {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!map) return;
+    
+    // Immediate fix
+    map.invalidateSize();
+    
+    // Aggressive fixes for the first few seconds
+    const intervals = [100, 500, 1000, 2000, 3000];
+    const timers = intervals.map(ms => setTimeout(() => map.invalidateSize(), ms));
+    
+    // Monitor container resize
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    
+    const container = map.getContainer();
+    resizeObserver.observe(container);
+    
+    return () => {
+      timers.forEach(t => clearTimeout(t));
+      resizeObserver.disconnect();
+    };
+  }, [map]);
+  
+  return null;
+}
+
 function MapEvents({ onLocationSelect, onMapReady, onLocationFound }: MapEventsProps) {
   const map = useMap();
 
@@ -54,7 +84,7 @@ function MapEvents({ onLocationSelect, onMapReady, onLocationFound }: MapEventsP
       onMapReady(map);
     }
     
-    // Only auto-locate ONCE to avoid lag/resets during form filling
+    // Only auto-locate ONCE
     if (!(window as any)._hasAutoLocated) {
       (window as any)._hasAutoLocated = true;
       setTimeout(() => {
@@ -176,6 +206,7 @@ export function MapView({
           }} 
         />
 
+        <MapResizer />
         <MapUpdater center={[initialCenter.lat, initialCenter.lng]} zoom={initialZoom} />
 
         {/* User's current position marker */}
