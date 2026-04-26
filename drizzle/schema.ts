@@ -37,6 +37,8 @@ export const issues = mysqlTable("issues", {
   category: varchar("category", { length: 64 }).notNull(), // Roads, Water, Electricity, Sanitation, Other
   status: mysqlEnum("status", ["open", "in-progress", "resolved"]).default("open").notNull(),
   severity: mysqlEnum("severity", ["low", "medium", "high"]).default("medium").notNull(),
+  riskLevel: mysqlEnum("riskLevel", ["low", "medium", "high", "critical"]).default("medium").notNull(),
+  isHidden: int("isHidden").default(0).notNull(),
   address: varchar("address", { length: 255 }).notNull(),
   latitude: varchar("latitude", { length: 64 }).notNull(),
   longitude: varchar("longitude", { length: 64 }).notNull(),
@@ -78,3 +80,19 @@ export const userVotes = mysqlTable("user_votes", {
 
 export type UserVote = typeof userVotes.$inferSelect;
 export type InsertUserVote = typeof userVotes.$inferInsert;
+
+/**
+ * OTP codes table for email-based authentication.
+ * Stores one-time passwords with expiration times for secure login/signup.
+ */
+export const otpCodes = mysqlTable("otp_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  code: varchar("code", { length: 6 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  isUsed: int("isUsed").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type OtpCode = typeof otpCodes.$inferSelect;
+export type InsertOtpCode = typeof otpCodes.$inferInsert;

@@ -67,4 +67,50 @@
 - [x] Integrate browser Geolocation API on Submit Issue page
 - [x] Integrate browser Geolocation API on Map page
 - [x] Write tests for protected voting system
-- [x] Initialize Git repository and push to GitHub (via Management UI)
+- [ ] Initialize Git repository and push to GitHub
+
+## Phase 9: OTP Email Authentication
+- [x] Add otp_codes table to database schema
+- [x] Create OTP generation and validation functions
+- [x] Implement email sending integration (basic)
+- [ ] Add OTP verification to login flow
+- [x] Add OTP verification to signup flow
+- [x] Add OTP expiration (10 minutes)
+- [ ] Add rate limiting for OTP requests
+- [x] Create OTP verification UI component
+- [ ] Write tests for OTP system
+
+## Phase 10: Admin Dashboard & Role-Based Access
+- [x] Add admin role management
+- [x] Create AdminDashboard page
+- [ ] Build user management interface
+- [x] Build issue management interface
+- [x] Add statistics and analytics (UI)
+- [ ] Implement admin-only navigation
+- [x] Add admin role checks to procedures
+- [ ] Write tests for admin features
+
+## Phase 11: AI Risk Detection
+- [x] Add risk_level column to issues table
+- [x] Implement AI-powered risk detection
+- [x] Create risk classification (Low, Medium, High, Critical)
+- [ ] Auto-detect risk on issue creation
+- [ ] Display risk level on issue cards
+- [ ] Add risk level filtering
+- [ ] Write tests for AI detection
+
+## Phase 12: Hidden/Critical Issues Feature
+- [x] Add visibility flag to issues table
+- [x] Implement hidden issues logic
+- [ ] Hide critical issues from non-admins
+- [x] Show critical issues to admins only
+- [ ] Add critical issue badge
+- [x] Create admin-only issue view
+- [ ] Write tests for visibility controls
+
+## Phase 13: Deployment & Final Polish
+- [ ] Fix Vercel deployment configuration
+- [ ] Update GitHub repository with all features
+- [ ] Create comprehensive deployment guide
+- [ ] Perform final testing
+- [ ] Create final checkpoint

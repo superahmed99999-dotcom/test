@@ -16,7 +16,21 @@ import {
   hasUserVoted,
   addUserVote,
   getUserVotes,
+  updateIssueRiskLevel,
+  hideIssue,
+  unhideIssue,
+  getHiddenIssues,
 } from "./db";
+import { createAndSendOtp, verifyOtp } from "./services/otpService";
+import { analyzeIssueRisk, shouldMarkAsCritical } from "./services/aiRiskService";
+
+// Admin procedure - requires admin role
+const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "admin") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
+  }
+  return next({ ctx });
+});
 
 export const appRouter = router({
   system: systemRouter,
@@ -217,6 +231,156 @@ export const appRouter = router({
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Failed to upvote issue",
+          });
+        }
+      }),
+  }),
+
+  // OTP Authentication Router
+  otp: router({
+    // Send OTP to email
+    sendOtp: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .mutation(async ({ input }) => {
+        try {
+          const result = await createAndSendOtp(input.email);
+          return result;
+        } catch (error) {
+          console.error("Failed to send OTP:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to send OTP",
+          });
+        }
+      }),
+
+    // Verify OTP code
+    verifyOtp: publicProcedure
+      .input(z.object({ email: z.string().email(), code: z.string() }))
+      .mutation(async ({ input }) => {
+        try {
+          const result = await verifyOtp(input.email, input.code);
+          return result;
+        } catch (error) {
+          console.error("Failed to verify OTP:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to verify OTP",
+          });
+        }
+      }),
+  }),
+
+  // Admin Router
+  admin: router({
+    // Get hidden issues (admin only)
+    getHiddenIssues: adminProcedure
+      .input(
+        z.object({
+          limit: z.number().min(1).max(100).default(50),
+          offset: z.number().min(0).default(0),
+        }).partial()
+      )
+      .query(async () => {
+        return await getHiddenIssues(50, 0);
+      }),
+
+    // Hide an issue (admin only)
+    hideIssue: adminProcedure
+      .input(z.number())
+      .mutation(async ({ input }) => {
+        try {
+          const issue = await getIssueById(input);
+          if (!issue) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Issue not found",
+            });
+          }
+          const updated = await hideIssue(input);
+          return updated;
+        } catch (error) {
+          console.error("Failed to hide issue:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to hide issue",
+          });
+        }
+      }),
+
+    // Unhide an issue (admin only)
+    unhideIssue: adminProcedure
+      .input(z.number())
+      .mutation(async ({ input }) => {
+        try {
+          const issue = await getIssueById(input);
+          if (!issue) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Issue not found",
+            });
+          }
+          const updated = await unhideIssue(input);
+          return updated;
+        } catch (error) {
+          console.error("Failed to unhide issue:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to unhide issue",
+          });
+        }
+      }),
+
+    // Update issue risk level (admin only)
+    updateRiskLevel: adminProcedure
+      .input(z.object({ issueId: z.number(), riskLevel: z.enum(["low", "medium", "high", "critical"]) }))
+      .mutation(async ({ input }) => {
+        try {
+          const issue = await getIssueById(input.issueId);
+          if (!issue) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Issue not found",
+            });
+          }
+          const updated = await updateIssueRiskLevel(input.issueId, input.riskLevel);
+          return updated;
+        } catch (error) {
+          console.error("Failed to update risk level:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to update risk level",
+          });
+        }
+      }),
+  }),
+
+  // AI Risk Detection Router
+  aiRisk: router({
+    // Analyze issue risk using AI
+    analyzeIssue: protectedProcedure
+      .input(
+        z.object({
+          title: z.string(),
+          description: z.string(),
+          category: z.string(),
+          severity: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const analysis = await analyzeIssueRisk(
+            input.title,
+            input.description,
+            input.category,
+            input.severity
+          );
+          return analysis;
+        } catch (error) {
+          console.error("Failed to analyze issue:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to analyze issue risk",
           });
         }
       }),

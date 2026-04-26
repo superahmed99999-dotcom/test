@@ -1,6 +1,6 @@
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, lt } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, issues, InsertIssue, issueImages, userVotes } from "../drizzle/schema";
+import { InsertUser, users, issues, InsertIssue, issueImages, userVotes, otpCodes } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -331,6 +331,152 @@ export async function getUserVotes(userId: number) {
     return result;
   } catch (error) {
     console.error("[Database] Failed to get user votes:", error);
+    return [];
+  }
+}
+
+// OTP query helpers
+
+export async function createOtpCode(email: string, code: string, expiresAt: Date) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    const result = await db.insert(otpCodes).values({ email, code, expiresAt });
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to create OTP code:", error);
+    throw error;
+  }
+}
+
+export async function verifyOtpCode(email: string, code: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot verify OTP: database not available");
+    return false;
+  }
+
+  try {
+    const result = await db
+      .select()
+      .from(otpCodes)
+      .where(and(eq(otpCodes.email, email), eq(otpCodes.code, code), eq(otpCodes.isUsed, 0)))
+      .limit(1);
+    
+    if (result.length === 0) return false;
+    
+    // Check if OTP is expired
+    const otpRecord = result[0];
+    if (new Date() > new Date(otpRecord.expiresAt)) {
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("[Database] Failed to verify OTP:", error);
+    return false;
+  }
+}
+
+export async function markOtpAsUsed(email: string, code: string) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    await db
+      .update(otpCodes)
+      .set({ isUsed: 1 })
+      .where(and(eq(otpCodes.email, email), eq(otpCodes.code, code)));
+  } catch (error) {
+    console.error("[Database] Failed to mark OTP as used:", error);
+    throw error;
+  }
+}
+
+export async function cleanupExpiredOtps() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot cleanup OTPs: database not available");
+    return;
+  }
+
+  try {
+    await db.delete(otpCodes).where(lt(otpCodes.expiresAt, new Date()));
+  } catch (error) {
+    console.error("[Database] Failed to cleanup expired OTPs:", error);
+  }
+}
+
+// AI Risk Detection helpers
+
+export async function updateIssueRiskLevel(id: number, riskLevel: "low" | "medium" | "high" | "critical") {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    await db.update(issues).set({ riskLevel }).where(eq(issues.id, id));
+    return await getIssueById(id);
+  } catch (error) {
+    console.error("[Database] Failed to update risk level:", error);
+    throw error;
+  }
+}
+
+export async function hideIssue(id: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    await db.update(issues).set({ isHidden: 1 }).where(eq(issues.id, id));
+    return await getIssueById(id);
+  } catch (error) {
+    console.error("[Database] Failed to hide issue:", error);
+    throw error;
+  }
+}
+
+export async function unhideIssue(id: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    await db.update(issues).set({ isHidden: 0 }).where(eq(issues.id, id));
+    return await getIssueById(id);
+  } catch (error) {
+    console.error("[Database] Failed to unhide issue:", error);
+    throw error;
+  }
+}
+
+export async function getHiddenIssues(limit: number = 50, offset: number = 0) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get hidden issues: database not available");
+    return [];
+  }
+
+  try {
+    const result = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.isHidden, 1))
+      .orderBy(issues.createdAt)
+      .limit(limit)
+      .offset(offset);
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to get hidden issues:", error);
     return [];
   }
 }
