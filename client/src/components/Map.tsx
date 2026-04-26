@@ -49,6 +49,7 @@ function MapEvents({ onLocationSelect, onMapReady, onLocationFound }: MapEventsP
   const map = useMap();
 
   useEffect(() => {
+    map.invalidateSize();
     if (onMapReady) {
       onMapReady(map);
     }
@@ -102,7 +103,19 @@ function MapEvents({ onLocationSelect, onMapReady, onLocationFound }: MapEventsP
 function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, zoom);
+    // Only set view if it's significantly different from current to avoid loops
+    const currentCenter = map.getCenter();
+    const isDifferent = Math.abs(currentCenter.lat - center[0]) > 0.001 || 
+                      Math.abs(currentCenter.lng - center[1]) > 0.001;
+    
+    if (isDifferent) {
+      map.setView(center, zoom);
+    }
+    
+    // Fix for the "grey map" issue
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
   }, [center, zoom, map]);
   return null;
 }
