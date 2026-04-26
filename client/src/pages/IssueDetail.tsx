@@ -41,15 +41,8 @@ export default function IssueDetail() {
 
   const handleMapReady = (map: any) => {
     if (issue) {
-      const position = { lat: parseFloat(issue.latitude), lng: parseFloat(issue.longitude) };
-      map.setCenter(position);
-      map.setZoom(15);
-
-      new (window as any).google.maps.marker.AdvancedMarkerElement({
-        map,
-        position,
-        title: issue.title,
-      });
+      const position: [number, number] = [parseFloat(issue.latitude), parseFloat(issue.longitude)];
+      map.setView(position, 15);
     }
   };
 
@@ -145,6 +138,7 @@ export default function IssueDetail() {
                   initialCenter={{ lat: parseFloat(issue.latitude), lng: parseFloat(issue.longitude) }}
                   initialZoom={15}
                   onMapReady={handleMapReady}
+                  issues={[issue]}
                 />
               </CardContent>
             </Card>

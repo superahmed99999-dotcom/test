@@ -113,6 +113,7 @@ interface MapViewProps {
   initialZoom?: number;
   onMapReady?: (map: any) => void; // Keep for compatibility
   onLocationSelect?: (location: { lat: number; lng: number }) => void;
+  onLocationFound?: (lat: number, lng: number) => void;
   issues?: Issue[];
   selectedLocation?: { lat: number; lng: number } | null;
   onIssueClick?: (issue: Issue) => void;
@@ -124,19 +125,13 @@ export function MapView({
   initialZoom = 13,
   onMapReady,
   onLocationSelect,
+  onLocationFound,
   issues = [],
   selectedLocation,
   onIssueClick,
 }: MapViewProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-
-  // Automatic geolocation on mount
-  useEffect(() => {
-    if (mapInstance && !selectedLocation) {
-      mapInstance.locate({ setView: true, maxZoom: 16 });
-    }
-  }, [mapInstance, selectedLocation]);
 
   const handleLocate = () => {
     if (mapInstance) {
@@ -178,7 +173,10 @@ export function MapView({
         
         <MapEvents 
           onLocationSelect={onLocationSelect} 
-          onLocationFound={(lat, lng) => setUserLocation({ lat, lng })}
+          onLocationFound={(lat, lng) => {
+            setUserLocation({ lat, lng });
+            if (onLocationFound) onLocationFound(lat, lng);
+          }}
           onMapReady={(map) => {
             setMapInstance(map);
             if (onMapReady) onMapReady(map);

@@ -146,6 +146,7 @@ export default function SubmitIssue() {
                     onMapReady={handleMapReady}
                     selectedLocation={selectedLocation}
                     onLocationSelect={handleLocationSelect}
+                    onLocationFound={(lat, lng) => handleLocationSelect({ lat, lng })}
                   />
                   
                   {/* Floating Overlay for status */}
