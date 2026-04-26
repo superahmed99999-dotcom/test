@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,12 +15,21 @@ export default function SignUp() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60);
 
   const sendOtpMutation = trpc.otp.sendOtp.useMutation();
   const verifyOtpMutation = trpc.otp.verifyOtp.useMutation();
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (step === "otp" && timeLeft > 0) {
+      timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [step, timeLeft]);
+
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!email) {
       toast.error("Please enter your email");
       return;
@@ -30,6 +39,7 @@ export default function SignUp() {
     try {
       await sendOtpMutation.mutateAsync({ email });
       toast.success("OTP sent to your email!");
+      setTimeLeft(60);
       setStep("otp");
     } catch (error) {
       toast.error("Failed to send OTP. Please try again.");
@@ -64,6 +74,12 @@ export default function SignUp() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getTimerColor = () => {
+    if (timeLeft > 30) return "bg-green-500";
+    if (timeLeft > 10) return "bg-yellow-500";
+    return "bg-red-500";
   };
 
   return (
@@ -118,16 +134,39 @@ export default function SignUp() {
                   disabled={loading}
                 />
               </div>
-              <p className="text-xs text-gray-500">
-                Check your email for the 6-digit code
-              </p>
-              <Button type="submit" className="w-full" disabled={loading}>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-gray-500 font-medium px-1">
+                  <span>Time remaining</span>
+                  <span>{timeLeft}s</span>
+                </div>
+                {timeLeft > 0 ? (
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 overflow-hidden">
+                    <div 
+                      className={`h-2.5 rounded-full transition-all duration-1000 ease-linear ${getTimerColor()}`} 
+                      style={{ width: `${(timeLeft / 60) * 100}%` }}
+                    ></div>
+                  </div>
+                ) : (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full" 
+                    onClick={() => handleSendOtp()}
+                    disabled={loading}
+                  >
+                    Resend OTP
+                  </Button>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={loading || timeLeft === 0}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Verify OTP
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 className="w-full"
                 onClick={() => {
                   setStep("email");

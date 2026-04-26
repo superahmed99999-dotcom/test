@@ -100,6 +100,15 @@ export const appRouter = router({
       )
       .mutation(async ({ input, ctx }) => {
         try {
+          const riskAnalysis = await analyzeIssueRisk(
+            input.title,
+            input.description,
+            input.category,
+            input.severity
+          );
+          
+          const isCritical = shouldMarkAsCritical(riskAnalysis.riskLevel);
+
           const issue = await createIssue({
             userId: ctx.user.id,
             title: input.title,
@@ -109,6 +118,8 @@ export const appRouter = router({
             address: input.address,
             latitude: input.latitude,
             longitude: input.longitude,
+            riskLevel: riskAnalysis.riskLevel,
+            isHidden: isCritical ? 1 : 0,
             status: "open",
             upvotes: 0,
           });

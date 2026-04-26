@@ -143,6 +143,7 @@ export async function getIssues(limit: number = 50, offset: number = 0) {
     const result = await db
       .select()
       .from(issues)
+      .where(eq(issues.isHidden, 0))
       .orderBy(issues.createdAt)
       .limit(limit)
       .offset(offset);
