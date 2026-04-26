@@ -35,25 +35,11 @@ export async function sendOtpEmail(email: string, code: string): Promise<{ succe
     console.log(`[OTP] SMTP_USER: ${process.env.SMTP_USER ? "FOUND" : "MISSING"}`);
     console.log(`[OTP] SMTP_PASS: ${process.env.SMTP_PASS ? "FOUND" : "MISSING"}`);
 
-    const transporter = nodemailer.createTransport(isGmail ? {
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true, // Use SSL
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
-      },
-      connectionTimeout: 10000,
-    } : {
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_PORT === "465",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false
       },
       connectionTimeout: 10000,
     });
@@ -103,12 +89,13 @@ export async function sendOtpEmail(email: string, code: string): Promise<{ succe
  * Create and send OTP for email
  */
 export async function createAndSendOtp(email: string): Promise<{ success: boolean; error?: string }> {
+  const normalizedEmail = email.trim().toLowerCase();
   try {
     const code = generateOtpCode();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
     
     // Store OTP in database
-    await createOtpCode(email, code, expiresAt);
+    await createOtpCode(normalizedEmail, code, expiresAt);
     
     // Send OTP via email
     const result = await sendOtpEmail(email, code);
