@@ -55,9 +55,9 @@ export default function MapPage() {
   }, [filteredIssues]);
 
   return (
-    <div className="relative flex flex-col md:flex-row overflow-hidden h-[calc(100vh-4rem)]">
+    <div className="relative flex flex-col md:flex-row overflow-hidden h-[calc(100vh-4rem)] bg-slate-50">
       {/* Sidebar / Filter Panel */}
-      <div className="w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 z-10 flex flex-col h-[40vh] md:h-full">
+      <div className="w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 z-10 flex flex-col h-[35vh] md:h-full shadow-xl">
         <div className="p-4 border-b border-slate-200 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />

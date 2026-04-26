@@ -138,7 +138,7 @@ export default function SubmitIssue() {
           <div className="lg:col-span-8 space-y-6">
             <Card className="border-none shadow-xl shadow-slate-200/50 rounded-2xl overflow-hidden ring-1 ring-slate-200">
               <CardContent className="p-0">
-                <div className="relative h-[600px]">
+                <div className="relative h-[450px] lg:h-[calc(100vh-280px)] min-h-[400px]">
                   <MapView
                     className="w-full h-full"
                     initialCenter={{ lat: 30.0444, lng: 31.2357 }} // Cairo
