@@ -33,6 +33,8 @@ export async function sendOtpEmail(email: string, code: string): Promise<boolean
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || "587"),
       secure: process.env.SMTP_PORT === "465",
+      connectionTimeout: 8000, // 8 seconds timeout
+      greetingTimeout: 8000,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
