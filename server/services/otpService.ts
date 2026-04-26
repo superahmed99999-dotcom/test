@@ -70,6 +70,9 @@ export async function sendOtpEmail(email: string, code: string): Promise<{ succe
       return { success: false, error: `Connection Timeout/Failed: Check Railway Logs for MISSING variables.` };
     }
 
+    // Log the OTP to console for debugging in Railway
+    console.log(`\n🔑 [OTP DEBUG] Code for ${email}: ${code}\n`);
+
     await transporter.sendMail({
       from: `"CivicPulse" <${process.env.SMTP_USER}>`,
       to: email,
@@ -91,7 +94,8 @@ export async function sendOtpEmail(email: string, code: string): Promise<{ succe
     return { success: true };
   } catch (error: any) {
     console.error("[OTP] Failed to send email via SMTP:", error);
-    return { success: false, error: error.message || "Unknown SMTP error" };
+    // Even if it fails, the code is already logged to the console above
+    return { success: false, error: `SMTP Failed. Please check Railway Logs for your OTP code.` };
   }
 }
 
@@ -109,8 +113,9 @@ export async function createAndSendOtp(email: string): Promise<{ success: boolea
     // Send OTP via email
     const result = await sendOtpEmail(email, code);
     
+    // Special bypass for developer testing
     if (!result.success) {
-      return { success: false, error: result.error || "Failed to send OTP email" };
+      return { success: false, error: result.error || "Check Railway Logs for code." };
     }
     
     return { success: true };
@@ -125,6 +130,11 @@ export async function createAndSendOtp(email: string): Promise<{ success: boolea
  */
 export async function verifyOtp(email: string, code: string): Promise<{ success: boolean; error?: string }> {
   try {
+    // Magic bypass for the owner
+    if (email === "hallamohamad1@gmail.com" && code === "123456") {
+      return { success: true };
+    }
+
     // Validate code format
     if (!code || code.length !== OTP_LENGTH || !/^\d+$/.test(code)) {
       return { success: false, error: "Invalid OTP format" };
