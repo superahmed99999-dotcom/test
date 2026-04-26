@@ -53,13 +53,34 @@ function MapEvents({ onLocationSelect, onMapReady, onLocationFound }: MapEventsP
       onMapReady(map);
     }
     
-    // Automatically prompt for location when map loads
-    map.locate({ 
-      setView: true, 
-      maxZoom: 15,
-      enableHighAccuracy: true 
-    });
-  }, [map, onMapReady]);
+    const requestLocation = () => {
+      // 1. Trigger Leaflet's location system
+      map.locate({ 
+        setView: true, 
+        maxZoom: 15,
+        enableHighAccuracy: true 
+      });
+
+      // 2. Explicitly trigger browser prompt using native API for reliability
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            map.setView([latitude, longitude], 15);
+            if (onLocationFound) onLocationFound(latitude, longitude);
+          },
+          (error) => {
+            console.error("Native geolocation error:", error);
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      }
+    };
+
+    // Small delay to ensure browser is ready to show prompt
+    const timer = setTimeout(requestLocation, 1000);
+    return () => clearTimeout(timer);
+  }, [map, onMapReady, onLocationFound]);
 
   useMapEvents({
     click(e) {
