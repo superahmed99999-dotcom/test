@@ -14,27 +14,52 @@ export function generateOtpCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+import nodemailer from "nodemailer";
+
 /**
  * Send OTP code to email
  * In production, integrate with SendGrid, AWS SES, or similar
  */
 export async function sendOtpEmail(email: string, code: string): Promise<boolean> {
   try {
-    // For now, log the OTP (in production, use actual email service)
-    console.log(`[OTP] Sending code ${code} to ${email}`);
-    
-    // TODO: Integrate with email service
-    // const emailService = new EmailService();
-    // await emailService.send({
-    //   to: email,
-    //   subject: 'Your CivicPulse Login Code',
-    //   template: 'otp',
-    //   data: { code }
-    // });
-    
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn("\n⚠️ [WARNING]: SMTP credentials not found in environment variables.");
+      console.warn("⚠️ Please set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS in Railway.");
+      // Do not log the OTP here for security reasons
+      return false; // Fail if SMTP is not configured to force them to configure it
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || "587"),
+      secure: process.env.SMTP_PORT === "465",
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"CivicPulse" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "Your CivicPulse Login Code",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+          <h2 style="color: #1e293b; text-align: center;">Welcome to CivicPulse</h2>
+          <p style="color: #475569; font-size: 16px;">Your One-Time Password (OTP) for login is:</p>
+          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a;">${code}</span>
+          </div>
+          <p style="color: #475569; font-size: 14px;">This code will expire in ${OTP_EXPIRY_MINUTES} minutes.</p>
+          <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">If you didn't request this code, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+
+    console.log(`[OTP] Email successfully sent to ${email}`);
     return true;
   } catch (error) {
-    console.error("[OTP] Failed to send email:", error);
+    console.error("[OTP] Failed to send email via SMTP:", error);
     return false;
   }
 }
