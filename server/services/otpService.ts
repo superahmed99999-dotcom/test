@@ -20,26 +20,38 @@ import nodemailer from "nodemailer";
  * Send OTP code to email
  * In production, integrate with SendGrid, AWS SES, or similar
  */
-export async function sendOtpEmail(email: string, code: string): Promise<boolean> {
+export async function sendOtpEmail(email: string, code: string): Promise<{ success: boolean; error?: string }> {
   try {
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.warn("\n⚠️ [WARNING]: SMTP credentials not found in environment variables.");
-      console.warn("⚠️ Please set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS in Railway.");
-      // Do not log the OTP here for security reasons
-      return false; // Fail if SMTP is not configured to force them to configure it
+      const msg = "SMTP credentials missing in Railway Variables";
+      console.error(`\n⚠️ [ERROR]: ${msg}`);
+      return { success: false, error: msg };
     }
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || "587"),
       secure: process.env.SMTP_PORT === "465",
-      connectionTimeout: 8000, // 8 seconds timeout
-      greetingTimeout: 8000,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      // Optimized for Gmail/Railway
+      tls: {
+        rejectUnauthorized: false
+      },
+      pool: true,
+      maxConnections: 3,
+      maxMessages: 10
     });
+
+    // Verify connection before sending
+    try {
+      await transporter.verify();
+    } catch (verifyError: any) {
+      console.error("[OTP] SMTP Verification Failed:", verifyError.message);
+      return { success: false, error: `SMTP Connection Failed: ${verifyError.message}` };
+    }
 
     await transporter.sendMail({
       from: `"CivicPulse" <${process.env.SMTP_USER}>`,
@@ -59,10 +71,10 @@ export async function sendOtpEmail(email: string, code: string): Promise<boolean
     });
 
     console.log(`[OTP] Email successfully sent to ${email}`);
-    return true;
-  } catch (error) {
+    return { success: true };
+  } catch (error: any) {
     console.error("[OTP] Failed to send email via SMTP:", error);
-    return false;
+    return { success: false, error: error.message || "Unknown SMTP error" };
   }
 }
 
@@ -78,10 +90,10 @@ export async function createAndSendOtp(email: string): Promise<{ success: boolea
     await createOtpCode(email, code, expiresAt);
     
     // Send OTP via email
-    const sent = await sendOtpEmail(email, code);
+    const result = await sendOtpEmail(email, code);
     
-    if (!sent) {
-      return { success: false, error: "Failed to send OTP email" };
+    if (!result.success) {
+      return { success: false, error: result.error || "Failed to send OTP email" };
     }
     
     return { success: true };
