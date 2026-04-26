@@ -35,13 +35,13 @@ export async function getDb() {
       _pool = mysql.createPool(config);
       
       // Handle pool errors to prevent app crashes
-      _pool.on('error', (err) => {
-        console.error('[Database Pool Error]', err.message);
+      (_pool as any).on('error', (err: any) => {
+        console.error('[Database Pool Error]', err.message || err);
         _db = null;
         _pool = null;
       });
 
-      _db = drizzle(_pool);
+      _db = drizzle(_pool as any) as any;
       
       // Test the connection with a timeout
       await Promise.race([

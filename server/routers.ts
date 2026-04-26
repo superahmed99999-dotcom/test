@@ -107,7 +107,12 @@ export const appRouter = router({
             input.severity
           );
           
-          const isCritical = shouldMarkAsCritical(riskAnalysis.riskLevel);
+          const isCritical = await shouldMarkAsCritical(
+            input.title,
+            input.description,
+            input.category,
+            riskAnalysis.riskLevel
+          );
 
           const issue = await createIssue({
             userId: ctx.user.id,

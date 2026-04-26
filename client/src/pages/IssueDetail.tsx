@@ -39,13 +39,13 @@ export default function IssueDetail() {
     }
   };
 
-  const handleMapReady = (map: google.maps.Map) => {
+  const handleMapReady = (map: any) => {
     if (issue) {
       const position = { lat: parseFloat(issue.latitude), lng: parseFloat(issue.longitude) };
       map.setCenter(position);
       map.setZoom(15);
 
-      new google.maps.marker.AdvancedMarkerElement({
+      new (window as any).google.maps.marker.AdvancedMarkerElement({
         map,
         position,
         title: issue.title,
