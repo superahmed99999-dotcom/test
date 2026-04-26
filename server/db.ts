@@ -11,35 +11,39 @@ let _pool: mysql.Pool | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      const url = new URL(process.env.DATABASE_URL);
-      const isTiDB = url.hostname.includes("tidbcloud.com");
+      const dbUrl = process.env.DATABASE_URL.trim();
       
+      // Basic validation
+      if (!dbUrl.startsWith('mysql://')) {
+        console.error("[Database] Invalid DATABASE_URL format. Must start with mysql://");
+        return null;
+      }
+
+      const url = new URL(dbUrl);
+      console.log(`[Database] Attempting to connect to host: ${url.hostname}`);
+
       const config: mysql.PoolOptions = {
         host: url.hostname,
         user: url.username,
         password: url.password,
         database: url.pathname.substring(1).split('?')[0],
         port: parseInt(url.port) || 3306,
+        ssl: dbUrl.includes("tidbcloud.com") || dbUrl.includes("ssl=") ? {
+          rejectUnauthorized: true
+        } : undefined,
         waitForConnections: true,
-        connectionLimit: 10,
+        connectionLimit: 5,
         queueLimit: 0
       };
-
-      // Force SSL for TiDB Cloud
-      if (isTiDB || process.env.DATABASE_URL.includes("ssl=")) {
-        config.ssl = {
-          rejectUnauthorized: true
-        };
-      }
 
       _pool = mysql.createPool(config);
       _db = drizzle(_pool);
       
-      // Simple ping to verify connection
+      // Test the connection
       await _pool.query("SELECT 1");
-      console.log("[Database] Successfully connected and verified.");
-    } catch (error) {
-      console.error("[Database] Connection failed:", error);
+      console.log("[Database] Connection verified successfully.");
+    } catch (error: any) {
+      console.error("[Database] Connection failed:", error.message || error);
       _db = null;
       _pool = null;
     }
