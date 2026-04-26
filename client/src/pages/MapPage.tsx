@@ -40,28 +40,17 @@ export default function MapPage() {
     }
   };
 
-  const handleMapReady = useCallback((map: google.maps.Map) => {
-    // Create markers for all filtered issues
-    filteredIssues.forEach((issue) => {
-      const marker = new google.maps.marker.AdvancedMarkerElement({
-        map,
-        position: { lat: parseFloat(issue.latitude), lng: parseFloat(issue.longitude) },
-        title: issue.title,
-      });
-
-      // Add click listener to marker
-      marker.addListener("click", () => {
-        setSelectedIssue(issue);
-      });
-    });
-
+  const handleMapReady = useCallback((map: any) => {
     // Fit bounds to show all markers
     if (filteredIssues.length > 0) {
-      const bounds = new google.maps.LatLngBounds();
-      filteredIssues.forEach((issue) => {
-        bounds.extend(new google.maps.LatLng(parseFloat(issue.latitude), parseFloat(issue.longitude)));
-      });
-      map.fitBounds(bounds);
+      const bounds = filteredIssues.map((issue) => [
+        parseFloat(issue.latitude),
+        parseFloat(issue.longitude),
+      ] as [number, number]);
+      
+      if (map.fitBounds) {
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
     }
   }, [filteredIssues]);
 
@@ -143,6 +132,8 @@ export default function MapPage() {
           initialCenter={filteredIssues.length > 0 ? { lat: parseFloat(filteredIssues[0].latitude), lng: parseFloat(filteredIssues[0].longitude) } : { lat: 40.7128, lng: -74.0060 }}
           initialZoom={14}
           onMapReady={handleMapReady}
+          issues={filteredIssues}
+          onIssueClick={setSelectedIssue}
         />
 
         {/* Issue Info Popup */}

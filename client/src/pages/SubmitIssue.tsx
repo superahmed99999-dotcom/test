@@ -26,7 +26,23 @@ export default function SubmitIssue() {
 
   const categories = ["Roads", "Water", "Electricity", "Sanitation", "Other"];
 
-  const handleMapReady = useCallback((map: google.maps.Map) => {
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+      const data = await response.json();
+      setAddress(data.display_name || "Unknown Location");
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      setAddress("Unknown Location");
+    }
+  };
+
+  const handleLocationSelect = useCallback(async (location: { lat: number; lng: number }) => {
+    setSelectedLocation(location);
+    await reverseGeocode(location.lat, location.lng);
+  }, []);
+
+  const handleMapReady = useCallback((map: any) => {
     // Try to get user's current location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -35,59 +51,19 @@ export default function SubmitIssue() {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
-          map.setCenter(userLocation);
-          map.setZoom(14);
+          if (map.setView) {
+            map.setView([userLocation.lat, userLocation.lng], 14);
+          }
           
           // Auto-select user's location
-          setSelectedLocation(userLocation);
-          
-          // Reverse geocode to get address
-          const geocoder = new google.maps.Geocoder();
-          geocoder.geocode({ location: userLocation }, (results, status) => {
-            if (status === "OK" && results && results[0]) {
-              setAddress(results[0].formatted_address);
-            }
-          });
+          handleLocationSelect(userLocation);
         },
         (error) => {
-          // Fallback to default center if geolocation fails
           console.warn("Geolocation error:", error);
-          const defaultCenter = { lat: 40.7128, lng: -74.0060 };
-          map.setCenter(defaultCenter);
-          map.setZoom(14);
         }
       );
-    } else {
-      // Fallback if geolocation is not supported
-      const defaultCenter = { lat: 40.7128, lng: -74.0060 };
-      map.setCenter(defaultCenter);
-      map.setZoom(14);
     }
-
-    // Add click listener to map to select location
-    map.addListener("click", (e: google.maps.MapMouseEvent) => {
-      if (e.latLng) {
-        const lat = e.latLng.lat();
-        const lng = e.latLng.lng();
-        setSelectedLocation({ lat, lng });
-
-        // Clear previous marker and add new one
-        new google.maps.marker.AdvancedMarkerElement({
-          map,
-          position: { lat, lng },
-          title: "Selected Location",
-        });
-
-        // Reverse geocode to get address
-        const geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-          if (status === "OK" && results && results[0]) {
-            setAddress(results[0].formatted_address);
-          }
-        });
-      }
-    });
-  }, []);
+  }, [handleLocationSelect]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +141,8 @@ export default function SubmitIssue() {
                     initialCenter={{ lat: 40.7128, lng: -74.0060 }}
                     initialZoom={14}
                     onMapReady={handleMapReady}
+                    selectedLocation={selectedLocation}
+                    onLocationSelect={handleLocationSelect}
                   />
                   <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 border border-slate-200">
                     <p className="text-sm font-semibold text-slate-900">

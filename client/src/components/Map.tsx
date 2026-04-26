@@ -1,115 +1,87 @@
-/**
- * GOOGLE MAPS FRONTEND INTEGRATION - ESSENTIAL GUIDE
- *
- * USAGE FROM PARENT COMPONENT:
- * ======
- *
- * const mapRef = useRef<google.maps.Map | null>(null);
- *
- * <MapView
- *   initialCenter={{ lat: 40.7128, lng: -74.0060 }}
- *   initialZoom={15}
- *   onMapReady={(map) => {
- *     mapRef.current = map; // Store to control map from parent anytime, google map itself is in charge of the re-rendering, not react state.
- * </MapView>
- *
- * ======
- * Available Libraries and Core Features:
- * -------------------------------
- * 📍 MARKER (from `marker` library)
- * - Attaches to map using { map, position }
- * new google.maps.marker.AdvancedMarkerElement({
- *   map,
- *   position: { lat: 37.7749, lng: -122.4194 },
- *   title: "San Francisco",
- * });
- *
- * -------------------------------
- * 🏢 PLACES (from `places` library)
- * - Does not attach directly to map; use data with your map manually.
- * const place = new google.maps.places.Place({ id: PLACE_ID });
- * await place.fetchFields({ fields: ["displayName", "location"] });
- * map.setCenter(place.location);
- * new google.maps.marker.AdvancedMarkerElement({ map, position: place.location });
- *
- * -------------------------------
- * 🧭 GEOCODER (from `geocoding` library)
- * - Standalone service; manually apply results to map.
- * const geocoder = new google.maps.Geocoder();
- * geocoder.geocode({ address: "New York" }, (results, status) => {
- *   if (status === "OK" && results[0]) {
- *     map.setCenter(results[0].geometry.location);
- *     new google.maps.marker.AdvancedMarkerElement({
- *       map,
- *       position: results[0].geometry.location,
- *     });
- *   }
- * });
- *
- * -------------------------------
- * 📐 GEOMETRY (from `geometry` library)
- * - Pure utility functions; not attached to map.
- * const dist = google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
- *
- * -------------------------------
- * 🛣️ ROUTES (from `routes` library)
- * - Combines DirectionsService (standalone) + DirectionsRenderer (map-attached)
- * const directionsService = new google.maps.DirectionsService();
- * const directionsRenderer = new google.maps.DirectionsRenderer({ map });
- * directionsService.route(
- *   { origin, destination, travelMode: "DRIVING" },
- *   (res, status) => status === "OK" && directionsRenderer.setDirections(res)
- * );
- *
- * -------------------------------
- * 🌦️ MAP LAYERS (attach directly to map)
- * - new google.maps.TrafficLayer().setMap(map);
- * - new google.maps.TransitLayer().setMap(map);
- * - new google.maps.BicyclingLayer().setMap(map);
- *
- * -------------------------------
- * ✅ SUMMARY
- * - “map-attached” → AdvancedMarkerElement, DirectionsRenderer, Layers.
- * - “standalone” → Geocoder, DirectionsService, DistanceMatrixService, ElevationService.
- * - “data-only” → Place, Geometry utilities.
- */
-
-/// <reference types="@types/google.maps" />
-
-import { useEffect, useRef } from "react";
-import { usePersistFn } from "@/hooks/usePersistFn";
+import { useEffect, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
+import type { Issue } from "@shared/types";
 
-declare global {
-  interface Window {
-    google?: typeof google;
-  }
+// Fix for default marker icons in Leaflet with Webpack/Vite
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerIconRetina from "leaflet/dist/images/marker-icon-2x.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+const DefaultIcon = L.icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIconRetina,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Custom icons for different statuses
+const createStatusIcon = (color: string) => {
+  return new L.DivIcon({
+    className: "custom-marker",
+    html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+};
+
+const statusIcons = {
+  open: createStatusIcon("#3b82f6"), // blue
+  "in-progress": createStatusIcon("#f59e0b"), // amber
+  resolved: createStatusIcon("#10b981"), // green
+  default: createStatusIcon("#6b7280"), // gray
+};
+
+interface MapEventsProps {
+  onLocationSelect?: (location: { lat: number; lng: number }) => void;
+  onMapReady?: (map: L.Map) => void;
 }
 
-const API_KEY = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
+function MapEvents({ onLocationSelect, onMapReady }: MapEventsProps) {
+  const map = useMap();
 
-function loadMapScript() {
-  return new Promise(resolve => {
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry`;
-    script.async = true;
-    script.crossOrigin = "anonymous";
-    script.onload = () => {
-      resolve(null);
-      script.remove(); // Clean up immediately
-    };
-    script.onerror = () => {
-      console.error("Failed to load Google Maps script");
-    };
-    document.head.appendChild(script);
+  useEffect(() => {
+    if (onMapReady) {
+      onMapReady(map);
+    }
+  }, [map, onMapReady]);
+
+  useMapEvents({
+    click(e) {
+      if (onLocationSelect) {
+        onLocationSelect({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    },
   });
+
+  return null;
+}
+
+// Component to update map center/zoom when props change
+function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
 }
 
 interface MapViewProps {
   className?: string;
-  initialCenter?: google.maps.LatLngLiteral;
+  initialCenter?: { lat: number; lng: number };
   initialZoom?: number;
-  onMapReady?: (map: google.maps.Map) => void;
+  onMapReady?: (map: any) => void; // Keep for compatibility
+  onLocationSelect?: (location: { lat: number; lng: number }) => void;
+  issues?: Issue[];
+  selectedLocation?: { lat: number; lng: number } | null;
+  onIssueClick?: (issue: Issue) => void;
 }
 
 export function MapView({
@@ -117,35 +89,64 @@ export function MapView({
   initialCenter = { lat: 37.7749, lng: -122.4194 },
   initialZoom = 12,
   onMapReady,
+  onLocationSelect,
+  issues = [],
+  selectedLocation,
+  onIssueClick,
 }: MapViewProps) {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<google.maps.Map | null>(null);
-
-  const init = usePersistFn(async () => {
-    await loadMapScript();
-    if (!mapContainer.current) {
-      console.error("Map container not found");
-      return;
-    }
-    map.current = new window.google.maps.Map(mapContainer.current, {
-      zoom: initialZoom,
-      center: initialCenter,
-      mapTypeControl: true,
-      fullscreenControl: true,
-      zoomControl: true,
-      streetViewControl: true,
-      mapId: "DEMO_MAP_ID",
-    });
-    if (onMapReady) {
-      onMapReady(map.current);
-    }
-  });
-
-  useEffect(() => {
-    init();
-  }, [init]);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
 
   return (
-    <div ref={mapContainer} className={cn("w-full h-[500px]", className)} />
+    <div className={cn("w-full h-[500px] rounded-lg overflow-hidden border border-slate-200 shadow-sm", className)}>
+      <MapContainer
+        center={[initialCenter.lat, initialCenter.lng]}
+        zoom={initialZoom}
+        className="w-full h-full"
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        
+        <MapEvents 
+          onLocationSelect={onLocationSelect} 
+          onMapReady={(map) => {
+            setMapInstance(map);
+            if (onMapReady) onMapReady(map);
+          }} 
+        />
+
+        <MapUpdater center={[initialCenter.lat, initialCenter.lng]} zoom={initialZoom} />
+
+        {/* Render markers for issues */}
+        {issues.map((issue) => (
+          <Marker
+            key={issue.id}
+            position={[parseFloat(issue.latitude), parseFloat(issue.longitude)]}
+            icon={statusIcons[issue.status as keyof typeof statusIcons] || statusIcons.default}
+            eventHandlers={{
+              click: () => {
+                if (onIssueClick) onIssueClick(issue);
+              },
+            }}
+          >
+            <Popup>
+              <div className="p-1">
+                <h3 className="font-bold text-sm">{issue.title}</h3>
+                <p className="text-xs text-slate-600 mt-1 line-clamp-2">{issue.description}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {/* Render marker for selected location (Submit Issue) */}
+        {selectedLocation && (
+          <Marker 
+            position={[selectedLocation.lat, selectedLocation.lng]} 
+            icon={DefaultIcon}
+          />
+        )}
+      </MapContainer>
+    </div>
   );
 }
