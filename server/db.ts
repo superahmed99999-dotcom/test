@@ -1,18 +1,27 @@
 import { eq, sql, and, lt } from "drizzle-orm";
+import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, issues, InsertIssue, issueImages, userVotes, otpCodes } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: mysql.Pool | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // Create a connection pool for better stability
+      _pool = mysql.createPool(process.env.DATABASE_URL);
+      _db = drizzle(_pool);
+      
+      // Simple ping to verify connection
+      await _pool.query("SELECT 1");
+      console.log("[Database] Successfully connected and verified.");
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Connection failed:", error);
       _db = null;
+      _pool = null;
     }
   }
   return _db;
