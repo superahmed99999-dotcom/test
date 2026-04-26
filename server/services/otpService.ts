@@ -129,14 +129,15 @@ export async function createAndSendOtp(email: string): Promise<{ success: boolea
  * Verify OTP code
  */
 export async function verifyOtp(email: string, code: string): Promise<{ success: boolean; error?: string }> {
+  const normalizedEmail = email.trim().toLowerCase();
   try {
     // Magic bypass for the owner (User account)
-    if (email === "hallamohamad1@gmail.com" && code === "123456") {
+    if (normalizedEmail === "hallamohamad1@gmail.com" && code === "123456") {
       return { success: true };
     }
 
     // Magic bypass for the admin account
-    if (email === "supermohamed55555@gmail.com" && code === "999999") {
+    if (normalizedEmail === "supermohamed55555@gmail.com" && code === "999999") {
       return { success: true };
     }
 
