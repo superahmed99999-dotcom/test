@@ -12,38 +12,46 @@ export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
       const dbUrl = process.env.DATABASE_URL.trim();
-      
-      // Basic validation
-      if (!dbUrl.startsWith('mysql://')) {
-        console.error("[Database] Invalid DATABASE_URL format. Must start with mysql://");
-        return null;
-      }
-
       const url = new URL(dbUrl);
-      console.log(`[Database] Attempting to connect to host: ${url.hostname}`);
-
+      
       const config: mysql.PoolOptions = {
         host: url.hostname,
         user: url.username,
         password: url.password,
-        database: url.pathname.substring(1).split('?')[0],
+        database: url.pathname.substring(1).split('?')[0] || undefined,
         port: parseInt(url.port) || 3306,
-        ssl: dbUrl.includes("tidbcloud.com") || dbUrl.includes("ssl=") ? {
+        ssl: (dbUrl.includes("tidbcloud.com") || dbUrl.includes("ssl")) ? {
           rejectUnauthorized: true
         } : undefined,
         waitForConnections: true,
-        connectionLimit: 5,
-        queueLimit: 0
+        connectionLimit: 10,
+        maxIdle: 10,
+        idleTimeout: 60000,
+        queueLimit: 0,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0
       };
 
       _pool = mysql.createPool(config);
+      
+      // Handle pool errors to prevent app crashes
+      _pool.on('error', (err) => {
+        console.error('[Database Pool Error]', err.message);
+        _db = null;
+        _pool = null;
+      });
+
       _db = drizzle(_pool);
       
-      // Test the connection
-      await _pool.query("SELECT 1");
-      console.log("[Database] Connection verified successfully.");
+      // Test the connection with a timeout
+      await Promise.race([
+        _pool.query("SELECT 1"),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 5000))
+      ]);
+      
+      console.log(`[Database] Connected to ${url.hostname} successfully.`);
     } catch (error: any) {
-      console.error("[Database] Connection failed:", error.message || error);
+      console.error("[Database] Setup failed:", error.message || error);
       _db = null;
       _pool = null;
     }
