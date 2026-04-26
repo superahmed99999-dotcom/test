@@ -108,95 +108,118 @@ export default function SubmitIssue() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/map")}
-            className="mb-4 gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Report an Issue</h1>
-          <p className="text-slate-600 mt-2">
-            Help us improve your community by reporting civic issues. Click on the map to select a location.
-          </p>
+    <div className="min-h-screen bg-[#f8fafc]">
+      {/* Header with Glassmorphism */}
+      <div className="sticky top-0 z-[1001] bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/map")}
+              className="rounded-full hover:bg-slate-100 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 leading-tight">Report an Issue</h1>
+              <p className="text-xs text-slate-500 font-medium">Help us improve your community</p>
+            </div>
+          </div>
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 px-3 py-1">
+            Step 1: Locate Issue
+          </Badge>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid md:grid-cols-3 gap-8">
-          {/* Map Section */}
-          <div className="md:col-span-2">
-            <Card className="border-none bg-white overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
+          {/* Left Side: Map and Info */}
+          <div className="lg:col-span-8 space-y-6">
+            <Card className="border-none shadow-xl shadow-slate-200/50 rounded-2xl overflow-hidden ring-1 ring-slate-200">
               <CardContent className="p-0">
-                <div className="relative">
+                <div className="relative h-[600px]">
                   <MapView
-                    className="w-full h-96"
-                    initialCenter={{ lat: 40.7128, lng: -74.0060 }}
+                    className="w-full h-full"
+                    initialCenter={{ lat: 30.0444, lng: 31.2357 }} // Cairo
                     initialZoom={14}
                     onMapReady={handleMapReady}
                     selectedLocation={selectedLocation}
                     onLocationSelect={handleLocationSelect}
                   />
-                  <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 border border-slate-200">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {selectedLocation
-                        ? `📍 Location Selected: ${selectedLocation.lat.toFixed(4)}, ${selectedLocation.lng.toFixed(4)}`
-                        : "Click on the map to select a location"}
-                    </p>
-                  </div>
+                  
+                  {/* Floating Overlay for status */}
+                  {!selectedLocation && (
+                    <div className="absolute inset-x-0 bottom-8 flex justify-center z-[1000] px-4">
+                      <div className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce">
+                        <MapPin className="h-5 w-5 text-blue-400" />
+                        <span className="text-sm font-medium">Tap on the map to pin the issue location</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            {selectedLocation && address && (
-              <Card className="border-none bg-white mt-4">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-semibold text-slate-900">Selected Address</p>
-                      <p className="text-sm text-slate-600 mt-1">{address}</p>
+            {/* Address Information Card */}
+            <div className={`transition-all duration-500 transform ${selectedLocation ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
+              <Card className="border-none shadow-lg shadow-slate-200/40 rounded-2xl bg-gradient-to-br from-white to-slate-50 ring-1 ring-slate-200">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-blue-600 p-3 rounded-xl shadow-lg shadow-blue-200">
+                      <MapPin className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-slate-900">Selected Location</h3>
+                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none">
+                          Verified
+                        </Badge>
+                      </div>
+                      <p className="text-slate-600 mt-2 text-sm leading-relaxed">{address || "Fetching address..."}</p>
+                      <div className="flex gap-4 mt-3 text-[10px] font-mono text-slate-400">
+                        <span>LAT: {selectedLocation?.lat.toFixed(6)}</span>
+                        <span>LNG: {selectedLocation?.lng.toFixed(6)}</span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            )}
+            </div>
           </div>
 
-          {/* Form Section */}
-          <div>
-            <Card className="border-none bg-white sticky top-20">
-              <CardContent className="p-6">
-                <h2 className="text-xl font-bold text-slate-900 mb-6">Issue Details</h2>
+          {/* Right Side: Form Details */}
+          <div className="lg:col-span-4 lg:sticky lg:top-24">
+            <Card className="border-none shadow-2xl shadow-slate-200/60 rounded-3xl bg-white ring-1 ring-slate-100 overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500" />
+              <CardContent className="p-8">
+                <div className="mb-8">
+                  <h2 className="text-2xl font-black text-slate-900">Issue Details</h2>
+                  <p className="text-slate-400 text-sm mt-1">Provide information about the problem</p>
+                </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="text-sm font-semibold text-slate-900 block mb-2">
-                      Title *
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
+                      Issue Title
                     </label>
                     <Input
-                      placeholder="e.g., Large pothole on Main St"
+                      placeholder="e.g., Street Light Not Working"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
+                      className="rounded-xl border-slate-200 focus:ring-blue-500 h-12 transition-all"
                       required
                     />
                   </div>
 
-                  <div>
-                    <label className="text-sm font-semibold text-slate-900 block mb-2">
-                      Category *
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
+                      Category
                     </label>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="w-full h-12 px-4 border border-slate-200 rounded-xl bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
                     >
                       {categories.map((cat) => (
                         <option key={cat} value={cat}>
@@ -206,50 +229,50 @@ export default function SubmitIssue() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="text-sm font-semibold text-slate-900 block mb-2">
-                      Severity *
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
+                      Severity Level
                     </label>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       {(["low", "medium", "high"] as const).map((sev) => (
                         <button
                           key={sev}
                           type="button"
                           onClick={() => setSeverity(sev)}
-                          className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
+                          className={`py-3 rounded-xl font-bold text-xs transition-all duration-300 border ${
                             severity === sev
                               ? sev === "low"
-                                ? "bg-green-100 text-green-800"
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm"
                                 : sev === "medium"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-red-100 text-red-800"
-                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                ? "bg-amber-50 border-amber-200 text-amber-700 shadow-sm"
+                                : "bg-rose-50 border-rose-200 text-rose-700 shadow-sm"
+                              : "bg-white border-slate-100 text-slate-400 hover:border-slate-300"
                           }`}
                         >
-                          {sev.charAt(0).toUpperCase() + sev.slice(1)}
+                          {sev.toUpperCase()}
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-sm font-semibold text-slate-900 block mb-2">
-                      Description *
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
+                      Description
                     </label>
                     <Textarea
-                      placeholder="Describe the issue in detail..."
+                      placeholder="Give us more context about the situation..."
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      rows={4}
+                      className="rounded-xl border-slate-200 focus:ring-blue-500 transition-all min-h-[120px] resize-none"
                       required
                     />
                   </div>
 
                   {!selectedLocation && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-3">
-                      <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-amber-800">
-                        Please select a location on the map to continue.
+                    <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 flex gap-4 animate-pulse">
+                      <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                      <p className="text-xs text-amber-700 font-medium leading-relaxed">
+                        The submit button will be enabled once you select a location on the map.
                       </p>
                     </div>
                   )}
@@ -257,9 +280,18 @@ export default function SubmitIssue() {
                   <Button
                     type="submit"
                     disabled={!selectedLocation || createIssueMutation.isPending}
-                    className="w-full"
+                    className={`w-full h-14 rounded-2xl font-black text-lg shadow-xl transition-all duration-500 ${
+                      !selectedLocation 
+                      ? "bg-slate-200 text-slate-400" 
+                      : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 hover:translate-y-[-2px]"
+                    }`}
                   >
-                    {createIssueMutation.isPending ? "Submitting..." : "Report Issue"}
+                    {createIssueMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        SUBMITTING...
+                      </div>
+                    ) : "SUBMIT REPORT"}
                   </Button>
                 </form>
               </CardContent>
@@ -268,5 +300,6 @@ export default function SubmitIssue() {
         </div>
       </div>
     </div>
+  );
   );
 }
