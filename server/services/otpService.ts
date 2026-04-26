@@ -28,7 +28,17 @@ export async function sendOtpEmail(email: string, code: string): Promise<{ succe
       return { success: false, error: msg };
     }
 
-    const transporter = nodemailer.createTransport({
+    const isGmail = process.env.SMTP_HOST?.includes("gmail.com");
+    
+    const transporter = nodemailer.createTransport(isGmail ? {
+      service: 'gmail',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      connectionTimeout: 5000, // 5 seconds
+      greetingTimeout: 5000,
+    } : {
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || "587"),
       secure: process.env.SMTP_PORT === "465",
@@ -36,21 +46,23 @@ export async function sendOtpEmail(email: string, code: string): Promise<{ succe
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
-      // Optimized for Gmail/Railway
       tls: {
         rejectUnauthorized: false
       },
-      pool: true,
-      maxConnections: 3,
-      maxMessages: 10
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
     });
 
-    // Verify connection before sending
+    // Verify connection before sending with a timeout
     try {
-      await transporter.verify();
+      const verifyPromise = transporter.verify();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Connection Timeout")), 5000)
+      );
+      await Promise.race([verifyPromise, timeoutPromise]);
     } catch (verifyError: any) {
       console.error("[OTP] SMTP Verification Failed:", verifyError.message);
-      return { success: false, error: `SMTP Connection Failed: ${verifyError.message}` };
+      return { success: false, error: `Connection Timeout/Failed: Ensure SMTP variables are set in Railway.` };
     }
 
     await transporter.sendMail({
