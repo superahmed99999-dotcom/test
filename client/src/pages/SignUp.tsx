@@ -70,7 +70,10 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      const result = await verifyOtpMutation.mutateAsync({ email: email.trim(), code: otp });
+      const result = await verifyOtpMutation.mutateAsync({ 
+        email: email.trim().toLowerCase(), 
+        code: otp 
+      });
       if (result.success) {
         toast.success("Email verified! You can now sign in.");
         setStep("success");

@@ -293,13 +293,14 @@ export const appRouter = router({
           if (!result.success) return result;
 
           // OTP verified, now log the user in locally
-          const openId = `local:${input.email}`;
-          const userName = input.email.split("@")[0];
+          const normalizedEmail = input.email.trim().toLowerCase();
+          const openId = `local:${normalizedEmail}`;
+          const userName = normalizedEmail.split("@")[0];
           
           await upsertUser({
             openId,
             name: userName,
-            email: input.email,
+            email: normalizedEmail,
             loginMethod: "otp",
             lastSignedIn: new Date(),
           });
