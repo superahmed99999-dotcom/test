@@ -46,12 +46,19 @@ export default function Dashboard() {
                 Track all the issues you've reported and their status.
               </p>
             </div>
-            <Link href="/submit">
-              <Button className="gap-2 whitespace-nowrap">
-                <Plus className="h-4 w-4" />
-                Report New Issue
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+              <Link href="/settings">
+                <Button variant="outline" className="gap-2 whitespace-nowrap">
+                  Settings
+                </Button>
+              </Link>
+              <Link href="/submit">
+                <Button className="gap-2 whitespace-nowrap">
+                  <Plus className="h-4 w-4" />
+                  Report New Issue
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
