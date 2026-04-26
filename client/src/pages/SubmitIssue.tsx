@@ -24,6 +24,37 @@ export default function SubmitIssue() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Roads");
   const [severity, setSeverity] = useState<"low" | "medium" | "high">("medium");
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+
+  // AI Risk Assessment Logic
+  const assessRisk = (text: string) => {
+    if (!text) return;
+    setIsAiAnalyzing(true);
+    
+    // Simulate AI processing delay
+    setTimeout(() => {
+      const lowerText = text.toLowerCase();
+      
+      const highRiskWords = ["fire", "explosion", "gas", "leak", "electricity", "collapsed", "blood", "hazard", "danger", "emergency", "fatal"];
+      const mediumRiskWords = ["pothole", "broken", "noise", "dark", "trash", "smell", "flood", "crack"];
+
+      if (highRiskWords.some(word => lowerText.includes(word))) {
+        setSeverity("high");
+      } else if (mediumRiskWords.some(word => lowerText.includes(word))) {
+        setSeverity("medium");
+      } else if (text.length > 5) {
+        setSeverity("low");
+      }
+      setIsAiAnalyzing(false);
+    }, 800);
+  };
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    setDescription(text);
+    // Trigger AI assessment with a slight debounce-like behavior
+    assessRisk(text);
+  };
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   const [imageUrl, setImageUrl] = useState("");
@@ -280,10 +311,16 @@ export default function SubmitIssue() {
                     </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
-                      Severity Level
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
+                        Severity Level
+                      </label>
+                      {isAiAnalyzing ? (
+                        <span className="text-[10px] text-blue-600 animate-pulse font-bold bg-blue-50 px-2 py-0.5 rounded-full">AI ANALYZING...</span>
+                      ) : (
+                        <Badge className="bg-blue-50 text-blue-600 hover:bg-blue-50 border-none text-[9px] font-bold">SMART SUGGESTION</Badge>
+                      )}
+                    </div>
                     <div className="grid grid-cols-3 gap-2">
                       {(["low", "medium", "high"] as const).map((sev) => (
                         <button
@@ -304,7 +341,6 @@ export default function SubmitIssue() {
                         </button>
                       ))}
                     </div>
-                  </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
@@ -353,7 +389,7 @@ export default function SubmitIssue() {
                     <Textarea
                       placeholder="Give us more context about the situation..."
                       value={description}
-                      onChange={(e) => setDescription(e.target.value)}
+                      onChange={handleDescriptionChange}
                       className="rounded-xl border-slate-200 focus:ring-blue-500 transition-all min-h-[120px] resize-none"
                       required
                     />

@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Plus, LayoutDashboard, LogOut } from "lucide-react";
+import { MapPin, Plus, LayoutDashboard, LogOut, Settings, Shield } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 
@@ -73,6 +73,15 @@ export default function Navbar() {
                 </Button>
               </Link>
             )}
+            <Link href="/settings">
+              <Button
+                variant={isActive("/settings") ? "default" : "ghost"}
+                className="gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
           </div>
 
           {/* Auth Section */}
@@ -97,11 +106,12 @@ export default function Navbar() {
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard" className="cursor-pointer">
-                      <LayoutDashboard className="h-4 w-4 mr-2" />
-                      Dashboard
+                    <Link href="/settings" className="cursor-pointer">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => logout()}
