@@ -86,8 +86,8 @@ interface MapViewProps {
 
 export function MapView({
   className,
-  initialCenter = { lat: 37.7749, lng: -122.4194 },
-  initialZoom = 12,
+  initialCenter = { lat: 30.0444, lng: 31.2357 }, // Default to Cairo
+  initialZoom = 13,
   onMapReady,
   onLocationSelect,
   issues = [],
@@ -96,8 +96,30 @@ export function MapView({
 }: MapViewProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
 
+  // Automatic geolocation on mount
+  useEffect(() => {
+    if (mapInstance && !selectedLocation) {
+      mapInstance.locate({ setView: true, maxZoom: 16 });
+    }
+  }, [mapInstance, selectedLocation]);
+
+  const handleLocate = () => {
+    if (mapInstance) {
+      mapInstance.locate({ setView: true, maxZoom: 16 });
+    }
+  };
+
   return (
-    <div className={cn("w-full h-[500px] rounded-lg overflow-hidden border border-slate-200 shadow-sm", className)}>
+    <div className={cn("w-full h-[500px] rounded-lg overflow-hidden border border-slate-200 shadow-sm relative", className)}>
+      <button 
+        onClick={handleLocate}
+        className="absolute top-4 right-4 z-[1000] bg-white p-2 rounded-md shadow-md hover:bg-slate-50 transition-colors border border-slate-200"
+        title="Locate Me"
+        type="button"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600"><circle cx="12" cy="12" r="3"/><path d="M20 12h2M2 12h2M12 2v2M12 20v2"/></svg>
+      </button>
+
       <MapContainer
         center={[initialCenter.lat, initialCenter.lng]}
         zoom={initialZoom}
