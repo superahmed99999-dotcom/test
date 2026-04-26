@@ -20,9 +20,12 @@ import {
   hideIssue,
   unhideIssue,
   getHiddenIssues,
+  upsertUser,
 } from "./db";
 import { createAndSendOtp, verifyOtp } from "./services/otpService";
 import { analyzeIssueRisk, shouldMarkAsCritical } from "./services/aiRiskService";
+import { sdk } from "./_core/sdk";
+import { ONE_YEAR_MS } from "@shared/const";
 
 // Admin procedure - requires admin role
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -257,10 +260,37 @@ export const appRouter = router({
     // Verify OTP code
     verifyOtp: publicProcedure
       .input(z.object({ email: z.string().email(), code: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         try {
           const result = await verifyOtp(input.email, input.code);
-          return result;
+          if (!result.success) return result;
+
+          // OTP verified, now log the user in locally
+          const openId = `local:${input.email}`;
+          const userName = input.email.split("@")[0];
+          
+          await upsertUser({
+            openId,
+            name: userName,
+            email: input.email,
+            loginMethod: "otp",
+            lastSignedIn: new Date(),
+          });
+
+          // Create session token
+          const sessionToken = await sdk.createSessionToken(openId, {
+            name: userName,
+            expiresInMs: ONE_YEAR_MS,
+          });
+
+          // Set cookie
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, sessionToken, { 
+            ...cookieOptions, 
+            maxAge: ONE_YEAR_MS 
+          });
+
+          return { success: true };
         } catch (error) {
           console.error("Failed to verify OTP:", error);
           throw new TRPCError({
