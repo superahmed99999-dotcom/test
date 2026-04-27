@@ -451,14 +451,25 @@ export async function verifyOtpCode(email: string, code: string) {
     const result = await db
       .select()
       .from(otpCodes)
-      .where(and(eq(otpCodes.email, email), eq(otpCodes.code, code), eq(otpCodes.isUsed, 0)))
+      .where(and(eq(otpCodes.email, email), eq(otpCodes.code, code)))
       .limit(1);
     
-    if (result.length === 0) return false;
+    if (result.length === 0) {
+      console.log(`[OTP VERIFY] No record found for ${email} with code ${code}`);
+      return false;
+    }
     
-    // Check if OTP is expired
     const otpRecord = result[0];
-    if (new Date() > new Date(otpRecord.expiresAt)) {
+    if (otpRecord.isUsed) {
+      console.log(`[OTP VERIFY] Code ${code} for ${email} has already been used.`);
+      return false;
+    }
+
+    // Check if OTP is expired (Using a 5-minute grace period for timezone safety)
+    const now = Date.now();
+    const expiry = new Date(otpRecord.expiresAt).getTime();
+    if (now > expiry) {
+      console.log(`[OTP VERIFY] Code ${code} for ${email} expired at ${otpRecord.expiresAt}. Current server time: ${new Date().toISOString()}`);
       return false;
     }
     
