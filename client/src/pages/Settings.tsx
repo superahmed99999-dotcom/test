@@ -9,11 +9,13 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Settings() {
   const { user, loading: authLoading } = useAuth();
   const { theme: currentTheme, setTheme: applyTheme } = useTheme();
-  const [language, setLanguage] = useState("en");
+  const { language: currentLang, setLanguage: applyLanguage, t } = useLanguage();
+  const [language, setLanguage] = useState(currentLang);
   const [theme, setTheme] = useState(currentTheme);
   const [notifications, setNotifications] = useState({
     statusChanges: true,
@@ -35,7 +37,10 @@ export default function Settings() {
   // Initialize from user data
   useEffect(() => {
     if (user) {
-      if ((user as any).language) setLanguage((user as any).language);
+      if ((user as any).language) {
+        setLanguage((user as any).language);
+        applyLanguage((user as any).language);
+      }
       if ((user as any).theme) {
         setTheme((user as any).theme);
         applyTheme((user as any).theme);
@@ -57,6 +62,7 @@ export default function Settings() {
       theme,
       notificationSettings: JSON.stringify(notifications)
     });
+    applyLanguage(language);
   };
 
   // Apply theme immediately on toggle (before save)
@@ -71,8 +77,8 @@ export default function Settings() {
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Settings</h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-2">Manage your account preferences and notifications</p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{t("settings.title")}</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-2">{t("settings.desc")}</p>
           </div>
           {authLoading && (
             <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse">

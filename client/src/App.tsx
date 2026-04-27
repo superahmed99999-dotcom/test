@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { LanguageProvider } from "./contexts/LanguageContext";
 import Home from "./pages/Home";
 import MapPage from "./pages/MapPage";
 import SubmitIssue from "./pages/SubmitIssue";
@@ -38,6 +39,7 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
+        <LanguageProvider>
         <TooltipProvider>
           <Toaster />
           <div className="flex flex-col min-h-screen">
@@ -47,6 +49,7 @@ function App() {
             </main>
           </div>
         </TooltipProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
