@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function Settings() {
   const { user, loading: authLoading } = useAuth();
+  const { theme: currentTheme, setTheme: applyTheme } = useTheme();
   const [language, setLanguage] = useState("en");
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(currentTheme);
   const [notifications, setNotifications] = useState({
     statusChanges: true,
     newComments: true,
@@ -21,7 +23,9 @@ export default function Settings() {
 
   const updateSettings = trpc.auth.updateSettings.useMutation({
     onSuccess: () => {
-      toast.success("Settings saved to your account!");
+      // Apply theme change immediately across the whole app
+      applyTheme(theme as "light" | "dark");
+      toast.success("Settings saved successfully!");
     },
     onError: (err) => {
       toast.error(`Failed to save: ${err.message}`);
@@ -32,7 +36,10 @@ export default function Settings() {
   useEffect(() => {
     if (user) {
       if ((user as any).language) setLanguage((user as any).language);
-      if ((user as any).theme) setTheme((user as any).theme);
+      if ((user as any).theme) {
+        setTheme((user as any).theme);
+        applyTheme((user as any).theme);
+      }
       if ((user as any).notificationSettings) {
         try {
           const parsed = JSON.parse((user as any).notificationSettings);
@@ -52,13 +59,20 @@ export default function Settings() {
     });
   };
 
+  // Apply theme immediately on toggle (before save)
+  const handleThemeToggle = (isDark: boolean) => {
+    const newTheme = isDark ? "dark" : "light";
+    setTheme(newTheme);
+    applyTheme(newTheme);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
-            <p className="text-slate-500 mt-2">Manage your account preferences and notifications</p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Settings</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-2">Manage your account preferences and notifications</p>
           </div>
           {authLoading && (
             <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse">
@@ -71,16 +85,16 @@ export default function Settings() {
         <div className="grid md:grid-cols-3 gap-8">
           {/* Sidebar Navigation */}
           <div className="space-y-2">
-            <Button variant="ghost" className="w-full justify-start gap-3 bg-white shadow-sm font-semibold text-primary">
+            <Button variant="ghost" className="w-full justify-start gap-3 bg-white dark:bg-slate-800 shadow-sm font-semibold text-primary">
               <User className="h-5 w-5" /> Account
             </Button>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600">
+            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600 dark:text-slate-300">
               <Bell className="h-5 w-5" /> Notifications
             </Button>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600">
+            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600 dark:text-slate-300">
               <Globe className="h-5 w-5" /> Appearance
             </Button>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600">
+            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600 dark:text-slate-300">
               <Shield className="h-5 w-5" /> Privacy & Security
             </Button>
           </div>
@@ -88,23 +102,23 @@ export default function Settings() {
           {/* Main Settings Content */}
           <div className="md:col-span-2 space-y-6">
             {/* Language Selection */}
-            <Card className="border-none shadow-sm">
+            <Card className="border-none shadow-sm dark:bg-slate-800">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="bg-blue-100 p-2 rounded-lg">
-                    <Globe className="h-5 w-5 text-blue-600" />
+                  <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
+                    <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">Language & Region</CardTitle>
+                    <CardTitle className="text-lg dark:text-white">Language & Region</CardTitle>
                     <CardDescription>Choose your preferred language for the interface</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="language">Language</Label>
+                  <Label htmlFor="language" className="dark:text-slate-200">Language</Label>
                   <Select value={language} onValueChange={setLanguage}>
-                    <SelectTrigger id="language" className="w-full">
+                    <SelectTrigger id="language" className="w-full dark:bg-slate-700 dark:border-slate-600">
                       <SelectValue placeholder="Select Language" />
                     </SelectTrigger>
                     <SelectContent>
@@ -119,14 +133,14 @@ export default function Settings() {
             </Card>
 
             {/* Notification Preferences */}
-            <Card className="border-none shadow-sm">
+            <Card className="border-none shadow-sm dark:bg-slate-800">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="bg-amber-100 p-2 rounded-lg">
-                    <Bell className="h-5 w-5 text-amber-600" />
+                  <div className="bg-amber-100 dark:bg-amber-900 p-2 rounded-lg">
+                    <Bell className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">Notifications</CardTitle>
+                    <CardTitle className="text-lg dark:text-white">Notifications</CardTitle>
                     <CardDescription>Control how you receive updates about your reports</CardDescription>
                   </div>
                 </div>
@@ -134,8 +148,8 @@ export default function Settings() {
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Issue Status Updates</Label>
-                    <p className="text-sm text-slate-500">Receive alerts when your reported issue changes status</p>
+                    <Label className="text-base dark:text-white">Issue Status Updates</Label>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Receive alerts when your reported issue changes status</p>
                   </div>
                   <Switch 
                     checked={notifications.statusChanges} 
@@ -144,8 +158,8 @@ export default function Settings() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Community Comments</Label>
-                    <p className="text-sm text-slate-500">Get notified when someone comments on your issue</p>
+                    <Label className="text-base dark:text-white">Community Comments</Label>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Get notified when someone comments on your issue</p>
                   </div>
                   <Switch 
                     checked={notifications.newComments} 
@@ -154,8 +168,8 @@ export default function Settings() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Email Digest</Label>
-                    <p className="text-sm text-slate-500">Weekly summary of civic activities in your area</p>
+                    <Label className="text-base dark:text-white">Email Digest</Label>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Weekly summary of civic activities in your area</p>
                   </div>
                   <Switch 
                     checked={notifications.emailDigest} 
@@ -166,14 +180,14 @@ export default function Settings() {
             </Card>
 
             {/* Theme / Appearance */}
-            <Card className="border-none shadow-sm">
+            <Card className="border-none shadow-sm dark:bg-slate-800">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="bg-purple-100 p-2 rounded-lg">
-                    <Moon className="h-5 w-5 text-purple-600" />
+                  <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
+                    <Moon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">Appearance</CardTitle>
+                    <CardTitle className="text-lg dark:text-white">Appearance</CardTitle>
                     <CardDescription>Customize the look and feel of CivicPulse</CardDescription>
                   </div>
                 </div>
@@ -181,19 +195,19 @@ export default function Settings() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Dark Mode</Label>
-                    <p className="text-sm text-slate-500">Switch between light and dark interface themes</p>
+                    <Label className="text-base dark:text-white">Dark Mode</Label>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Switch between light and dark interface themes</p>
                   </div>
                   <Switch 
                     checked={theme === "dark"} 
-                    onCheckedChange={(val) => setTheme(val ? "dark" : "light")} 
+                    onCheckedChange={handleThemeToggle} 
                   />
                 </div>
               </CardContent>
             </Card>
 
             <div className="flex justify-end gap-4 pt-4">
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline" className="dark:bg-slate-700 dark:text-white dark:border-slate-600">Cancel</Button>
               <Button onClick={handleSave} disabled={updateSettings.isPending}>
                 {updateSettings.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Changes

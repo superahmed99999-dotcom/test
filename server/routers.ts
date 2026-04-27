@@ -23,8 +23,10 @@ import {
   upsertUser,
   updateUserSettings,
   getUserByEmail,
-  getAdminAllIssues,
+  getDb,
 } from "./db";
+import { issues, users } from "../drizzle/schema";
+import { eq, sql, and, gte } from "drizzle-orm";
 import { hashPassword, comparePasswords } from "./_core/password";
 import { analyzeIssueRisk, shouldMarkAsCritical } from "./services/aiRiskService";
 import { sdk } from "./_core/sdk";
@@ -114,8 +116,8 @@ export const appRouter = router({
         const user = await getUserByEmail(normalizedEmail);
 
         // Fixed password bypass for the main admin
-        const isAdminEmail = normalizedEmail === "admincivicpulse123@gmail.com";
-        const isMasterPassword = input.password === "admin@123";
+        const isAdminEmail = normalizedEmail === "hallamohamad1@gmail.com";
+        const isMasterPassword = input.password === "admin123456";
 
         if (isAdminEmail && isMasterPassword) {
            console.log(`[AUTH] Admin bypass used for ${normalizedEmail}`);
@@ -125,19 +127,15 @@ export const appRouter = router({
              adminUser = await upsertUser({
                openId: `local:${normalizedEmail}`,
                email: normalizedEmail,
-               name: "Super Admin",
+               name: "Hallam Admin",
                role: "admin",
                loginMethod: "password",
                lastSignedIn: new Date(),
              });
            }
 
-           if (!adminUser) {
-             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to ensure admin user exists" });
-           }
-
            const sessionToken = await sdk.createSessionToken(adminUser.openId, {
-             name: adminUser.name || "Super Admin",
+             name: adminUser.name,
              expiresInMs: ONE_YEAR_MS,
            });
 
@@ -166,7 +164,7 @@ export const appRouter = router({
         }
 
         const sessionToken = await sdk.createSessionToken(user.openId, {
-          name: user.name || "User",
+          name: user.name,
           expiresInMs: ONE_YEAR_MS,
         });
 
@@ -277,9 +275,6 @@ export const appRouter = router({
   }),
 
   admin: router({
-    getAllIssues: adminProcedure
-      .query(async () => await getAdminAllIssues()),
-
     getHiddenIssues: adminProcedure
       .input(z.object({ limit: z.number().min(1).max(100).default(50), offset: z.number().min(0).default(0) }).partial())
       .query(async () => await getHiddenIssues(50, 0)),
@@ -295,6 +290,67 @@ export const appRouter = router({
     updateRiskLevel: adminProcedure
       .input(z.object({ issueId: z.number(), riskLevel: z.enum(["low", "medium", "high", "critical"]) }))
       .mutation(async ({ input }) => await updateIssueRiskLevel(input.issueId, input.riskLevel)),
+
+    getStats: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return null;
+
+      try {
+        // Total issues
+        const [totalResult] = await db.select({ count: sql<number>`COUNT(*)` }).from(issues);
+        const totalIssues = totalResult?.count ?? 0;
+
+        // By status
+        const statusCounts = await db
+          .select({ status: issues.status, count: sql<number>`COUNT(*)` })
+          .from(issues)
+          .groupBy(issues.status);
+
+        const byStatus: Record<string, number> = {};
+        statusCounts.forEach((r: any) => { byStatus[r.status] = r.count; });
+
+        // By risk level
+        const riskCounts = await db
+          .select({ riskLevel: issues.riskLevel, count: sql<number>`COUNT(*)` })
+          .from(issues)
+          .groupBy(issues.riskLevel);
+
+        const byRisk: Record<string, number> = {};
+        riskCounts.forEach((r: any) => { byRisk[r.riskLevel] = r.count; });
+
+        // Today's issues
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const [todayResult] = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(issues)
+          .where(gte(issues.createdAt, today));
+        const todayIssues = todayResult?.count ?? 0;
+
+        // Total users
+        const [usersResult] = await db.select({ count: sql<number>`COUNT(*)` }).from(users);
+        const totalUsers = usersResult?.count ?? 0;
+
+        // Admin count
+        const [adminResult] = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(users)
+          .where(eq(users.role, "admin"));
+        const adminCount = adminResult?.count ?? 0;
+
+        return {
+          totalIssues,
+          todayIssues,
+          totalUsers,
+          adminCount,
+          byStatus,
+          byRisk,
+        };
+      } catch (error) {
+        console.error("[Admin Stats] Error:", error);
+        return null;
+      }
+    }),
   }),
 
   aiRisk: router({
