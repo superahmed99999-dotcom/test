@@ -68,7 +68,8 @@ export const appRouter = router({
         const normalizedEmail = input.email.trim().toLowerCase();
         const existingUser = await getUserByEmail(normalizedEmail);
         
-        if (existingUser) {
+        // If user exists and ALREADY has a password, then it's a real duplicate
+        if (existingUser && existingUser.password) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "User with this email already exists",
@@ -76,7 +77,7 @@ export const appRouter = router({
         }
 
         const hashedPassword = await hashPassword(input.password);
-        const openId = `local:${normalizedEmail}`;
+        const openId = existingUser ? existingUser.openId : `local:${normalizedEmail}`;
 
         const user = await upsertUser({
           openId,
