@@ -11,6 +11,7 @@ import IssueDetail from "./pages/IssueDetail";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import SignUp from "./pages/SignUp";
+import SignIn from "./pages/SignIn";
 import Settings from "./pages/Settings";
 import Navbar from "./components/Navbar";
 
@@ -24,6 +25,7 @@ function Router() {
       <Route path={"/dashboard"} component={Dashboard} />
       <Route path={"/admin"} component={AdminDashboard} />
       <Route path={"/signup"} component={SignUp} />
+      <Route path={"/signin"} component={SignIn} />
       <Route path={"/settings"} component={Settings} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

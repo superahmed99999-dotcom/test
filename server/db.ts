@@ -52,7 +52,6 @@ export async function getDb() {
       console.log(`[Database] Connected to ${url.hostname} successfully.`);
 
       // AUTO-MIGRATION CHECK: Add missing columns if they don't exist
-      // This solves the "Unknown column" errors on Railway
       try {
         console.log("[Database] Running auto-migration check...");
         const [usersColumns] = await _pool.query("SHOW COLUMNS FROM users");
@@ -60,22 +59,22 @@ export async function getDb() {
         
         if (!userColNames.includes("language")) {
           await _pool.query("ALTER TABLE users ADD COLUMN language VARCHAR(10) DEFAULT 'en' NOT NULL");
-          console.log("[Database] Added 'language' column to users table.");
         }
         if (!userColNames.includes("notificationSettings")) {
           await _pool.query("ALTER TABLE users ADD COLUMN notificationSettings TEXT DEFAULT '{\"statusChanges\":true,\"newComments\":true,\"emailDigest\":true}' NOT NULL");
-          console.log("[Database] Added 'notificationSettings' column to users table.");
+        }
+        if (!userColNames.includes("password")) {
+          await _pool.query("ALTER TABLE users ADD COLUMN password TEXT");
+          console.log("[Database] Added 'password' column to users table.");
         }
 
         const [issuesColumns] = await _pool.query("SHOW COLUMNS FROM issues");
         const issueColNames = (issuesColumns as any[]).map(c => c.Field);
         if (!issueColNames.includes("riskLevel")) {
           await _pool.query("ALTER TABLE issues ADD COLUMN riskLevel ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium' NOT NULL");
-          console.log("[Database] Added 'riskLevel' column to issues table.");
         }
         if (!issueColNames.includes("isHidden")) {
           await _pool.query("ALTER TABLE issues ADD COLUMN isHidden INT DEFAULT 0 NOT NULL");
-          console.log("[Database] Added 'isHidden' column to issues table.");
         }
       } catch (migrateError) {
         console.error("[Database] Auto-migration check failed (non-critical):", migrateError);
@@ -90,15 +89,14 @@ export async function getDb() {
   return _db;
 }
 
-export async function upsertUser(user: InsertUser): Promise<void> {
+export async function upsertUser(user: InsertUser): Promise<any> {
   if (!user.openId) {
     throw new Error("User openId is required for upsert");
   }
 
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
+    throw new Error("Database not available");
   }
 
   try {
@@ -107,7 +105,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     };
     const updateSet: Record<string, unknown> = {};
 
-    const textFields = ["name", "email", "loginMethod"] as const;
+    const textFields = ["name", "email", "loginMethod", "password"] as const;
     type TextField = (typeof textFields)[number];
 
     const assignNullable = (field: TextField) => {
@@ -143,6 +141,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     await db.insert(users).values(values).onDuplicateKeyUpdate({
       set: updateSet,
     });
+
+    const result = await db.select().from(users).where(eq(users.openId, user.openId)).limit(1);
+    return result[0];
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -151,20 +152,21 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
+  if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
 export async function updateUserSettings(userId: number, data: { language?: string; theme?: string; notificationSettings?: string }) {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
+  if (!db) throw new Error("Database not available");
 
   try {
     await db.update(users).set(data).where(eq(users.id, userId));
@@ -177,23 +179,11 @@ export async function updateUserSettings(userId: number, data: { language?: stri
 }
 
 // Issue query helpers
-
 export async function getIssues(limit: number = 50, offset: number = 0) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get issues: database not available");
-    return [];
-  }
-
+  if (!db) return [];
   try {
-    const result = await db
-      .select()
-      .from(issues)
-      .where(eq(issues.isHidden, 0))
-      .orderBy(issues.createdAt)
-      .limit(limit)
-      .offset(offset);
-    return result;
+    return await db.select().from(issues).where(eq(issues.isHidden, 0)).orderBy(issues.createdAt).limit(limit).offset(offset);
   } catch (error) {
     console.error("[Database] Failed to get issues:", error);
     return [];
@@ -202,11 +192,7 @@ export async function getIssues(limit: number = 50, offset: number = 0) {
 
 export async function getIssueById(id: number) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get issue: database not available");
-    return undefined;
-  }
-
+  if (!db) return undefined;
   try {
     const result = await db.select().from(issues).where(eq(issues.id, id)).limit(1);
     return result.length > 0 ? result[0] : undefined;
@@ -218,18 +204,9 @@ export async function getIssueById(id: number) {
 
 export async function getIssuesByUser(userId: number) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user issues: database not available");
-    return [];
-  }
-
+  if (!db) return [];
   try {
-    const result = await db
-      .select()
-      .from(issues)
-      .where(eq(issues.userId, userId))
-      .orderBy(issues.createdAt);
-    return result;
+    return await db.select().from(issues).where(eq(issues.userId, userId)).orderBy(issues.createdAt);
   } catch (error) {
     console.error("[Database] Failed to get user issues:", error);
     return [];
@@ -238,15 +215,9 @@ export async function getIssuesByUser(userId: number) {
 
 export async function getIssueCount() {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get issue count: database not available");
-    return 0;
-  }
-
+  if (!db) return 0;
   try {
-    const result = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(issues);
+    const result = await db.select({ count: sql<number>`COUNT(*)` }).from(issues);
     return result[0]?.count ?? 0;
   } catch (error) {
     console.error("[Database] Failed to get issue count:", error);
@@ -256,13 +227,9 @@ export async function getIssueCount() {
 
 export async function createIssue(data: InsertIssue) {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
+  if (!db) throw new Error("Database not available");
   try {
     const result = await db.insert(issues).values(data);
-    // Return the created issue by fetching it
     const insertedId = result[0].insertId;
     return await getIssueById(Number(insertedId));
   } catch (error) {
@@ -273,10 +240,7 @@ export async function createIssue(data: InsertIssue) {
 
 export async function updateIssue(id: number, data: Partial<InsertIssue>) {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
+  if (!db) throw new Error("Database not available");
   try {
     await db.update(issues).set(data).where(eq(issues.id, id));
     return await getIssueById(id);
@@ -288,10 +252,7 @@ export async function updateIssue(id: number, data: Partial<InsertIssue>) {
 
 export async function deleteIssue(id: number) {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
+  if (!db) throw new Error("Database not available");
   try {
     await db.delete(issues).where(eq(issues.id, id));
     return true;
@@ -303,15 +264,9 @@ export async function deleteIssue(id: number) {
 
 export async function upvoteIssue(id: number) {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
+  if (!db) throw new Error("Database not available");
   try {
-    await db
-      .update(issues)
-      .set({ upvotes: sql`${issues.upvotes} + 1` })
-      .where(eq(issues.id, id));
+    await db.update(issues).set({ upvotes: sql`${issues.upvotes} + 1` }).where(eq(issues.id, id));
     return await getIssueById(id);
   } catch (error) {
     console.error("[Database] Failed to upvote issue:", error);
@@ -321,17 +276,9 @@ export async function upvoteIssue(id: number) {
 
 export async function getIssueImages(issueId: number) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get issue images: database not available");
-    return [];
-  }
-
+  if (!db) return [];
   try {
-    const result = await db
-      .select()
-      .from(issueImages)
-      .where(eq(issueImages.issueId, issueId));
-    return result;
+    return await db.select().from(issueImages).where(eq(issueImages.issueId, issueId));
   } catch (error) {
     console.error("[Database] Failed to get issue images:", error);
     return [];
@@ -340,34 +287,20 @@ export async function getIssueImages(issueId: number) {
 
 export async function addIssueImage(issueId: number, imageUrl: string) {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
+  if (!db) throw new Error("Database not available");
   try {
-    const result = await db.insert(issueImages).values({ issueId, imageUrl });
-    return result;
+    return await db.insert(issueImages).values({ issueId, imageUrl });
   } catch (error) {
     console.error("[Database] Failed to add issue image:", error);
     throw error;
   }
 }
 
-// User votes query helpers
-
 export async function hasUserVoted(userId: number, issueId: number) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot check vote: database not available");
-    return false;
-  }
-
+  if (!db) return false;
   try {
-    const result = await db
-      .select()
-      .from(userVotes)
-      .where(and(eq(userVotes.userId, userId), eq(userVotes.issueId, issueId)))
-      .limit(1);
+    const result = await db.select().from(userVotes).where(and(eq(userVotes.userId, userId), eq(userVotes.issueId, issueId))).limit(1);
     return result.length > 0;
   } catch (error) {
     console.error("[Database] Failed to check vote:", error);
@@ -377,26 +310,12 @@ export async function hasUserVoted(userId: number, issueId: number) {
 
 export async function addUserVote(userId: number, issueId: number) {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
+  if (!db) throw new Error("Database not available");
   try {
-    // Check if vote already exists
     const existing = await hasUserVoted(userId, issueId);
-    if (existing) {
-      throw new Error("User has already voted on this issue");
-    }
-
-    // Add the vote
+    if (existing) throw new Error("User has already voted on this issue");
     await db.insert(userVotes).values({ userId, issueId });
-
-    // Increment the upvotes count
-    await db
-      .update(issues)
-      .set({ upvotes: sql`${issues.upvotes} + 1` })
-      .where(eq(issues.id, issueId));
-
+    await db.update(issues).set({ upvotes: sql`${issues.upvotes} + 1` }).where(eq(issues.id, issueId));
     return await getIssueById(issueId);
   } catch (error) {
     console.error("[Database] Failed to add vote:", error);
@@ -406,17 +325,9 @@ export async function addUserVote(userId: number, issueId: number) {
 
 export async function getUserVotes(userId: number) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user votes: database not available");
-    return [];
-  }
-
+  if (!db) return [];
   try {
-    const result = await db
-      .select()
-      .from(userVotes)
-      .where(eq(userVotes.userId, userId));
-    return result;
+    return await db.select().from(userVotes).where(eq(userVotes.userId, userId));
   } catch (error) {
     console.error("[Database] Failed to get user votes:", error);
     return [];
@@ -424,13 +335,9 @@ export async function getUserVotes(userId: number) {
 }
 
 // AI Risk Detection helpers
-
 export async function updateIssueRiskLevel(id: number, riskLevel: "low" | "medium" | "high" | "critical") {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
+  if (!db) throw new Error("Database not available");
   try {
     await db.update(issues).set({ riskLevel }).where(eq(issues.id, id));
     return await getIssueById(id);
@@ -442,10 +349,7 @@ export async function updateIssueRiskLevel(id: number, riskLevel: "low" | "mediu
 
 export async function hideIssue(id: number) {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
+  if (!db) throw new Error("Database not available");
   try {
     await db.update(issues).set({ isHidden: 1 }).where(eq(issues.id, id));
     return await getIssueById(id);
@@ -457,10 +361,7 @@ export async function hideIssue(id: number) {
 
 export async function unhideIssue(id: number) {
   const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
+  if (!db) throw new Error("Database not available");
   try {
     await db.update(issues).set({ isHidden: 0 }).where(eq(issues.id, id));
     return await getIssueById(id);
@@ -472,20 +373,9 @@ export async function unhideIssue(id: number) {
 
 export async function getHiddenIssues(limit: number = 50, offset: number = 0) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get hidden issues: database not available");
-    return [];
-  }
-
+  if (!db) return [];
   try {
-    const result = await db
-      .select()
-      .from(issues)
-      .where(eq(issues.isHidden, 1))
-      .orderBy(issues.createdAt)
-      .limit(limit)
-      .offset(offset);
-    return result;
+    return await db.select().from(issues).where(eq(issues.isHidden, 1)).orderBy(issues.createdAt).limit(limit).offset(offset);
   } catch (error) {
     console.error("[Database] Failed to get hidden issues:", error);
     return [];
