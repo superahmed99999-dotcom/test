@@ -85,18 +85,4 @@ export const userVotes = mysqlTable("user_votes", {
 export type UserVote = typeof userVotes.$inferSelect;
 export type InsertUserVote = typeof userVotes.$inferInsert;
 
-/**
- * OTP codes table for email-based authentication.
- * Stores one-time passwords with expiration times for secure login/signup.
- */
-export const otpCodes = mysqlTable("otp_codes", {
-  id: int("id").autoincrement().primaryKey(),
-  email: varchar("email", { length: 320 }).notNull(),
-  code: varchar("code", { length: 6 }).notNull(),
-  expiresAt: timestamp("expiresAt").notNull(),
-  isUsed: int("isUsed").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
 
-export type OtpCode = typeof otpCodes.$inferSelect;
-export type InsertOtpCode = typeof otpCodes.$inferInsert;

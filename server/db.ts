@@ -1,7 +1,7 @@
 import { eq, sql, and, lt } from "drizzle-orm";
 import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, issues, InsertIssue, issueImages, userVotes, otpCodes } from "../drizzle/schema";
+import { InsertUser, users, issues, InsertIssue, issueImages, userVotes } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -420,123 +420,6 @@ export async function getUserVotes(userId: number) {
   } catch (error) {
     console.error("[Database] Failed to get user votes:", error);
     return [];
-  }
-}
-
-// OTP query helpers
-
-export async function createOtpCode(email: string, code: string, expiresAt: Date) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  try {
-    // Delete any old OTPs for this email before creating a new one
-    // This prevents stale codes from interfering with verification
-    await db.delete(otpCodes).where(eq(otpCodes.email, email));
-    console.log(`[OTP] Cleared old OTPs for ${email}`);
-
-    const result = await db.insert(otpCodes).values({ email, code, expiresAt });
-    console.log(`[OTP] Created new OTP for ${email}, expires at ${expiresAt.toISOString()}`);
-    return result;
-  } catch (error) {
-    console.error("[Database] Failed to create OTP code:", error);
-    throw error;
-  }
-}
-
-export async function verifyOtpCode(email: string, code: string) {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot verify OTP: database not available");
-    return false;
-  }
-
-  try {
-    console.log(`[OTP VERIFY] Checking email="${email}" code="${code}"`);
-
-    // Fetch the latest OTP for this email (regardless of code) for debug logging
-    const allForEmail = await db
-      .select()
-      .from(otpCodes)
-      .where(eq(otpCodes.email, email))
-      .limit(5);
-
-    console.log(`[OTP VERIFY] Records in DB for ${email}:`, allForEmail.map(r => ({
-      code: r.code,
-      isUsed: r.isUsed,
-      expiresAt: r.expiresAt,
-    })));
-
-    // Now find the exact matching record, ordered newest-first
-    const result = await db
-      .select()
-      .from(otpCodes)
-      .where(and(eq(otpCodes.email, email), eq(otpCodes.code, code)))
-      .orderBy(sql`${otpCodes.expiresAt} DESC`)
-      .limit(1);
-    
-    if (result.length === 0) {
-      console.log(`[OTP VERIFY] No matching record found for email="${email}" code="${code}"`);
-      return false;
-    }
-    
-    const otpRecord = result[0];
-    console.log(`[OTP VERIFY] Found record: code=${otpRecord.code}, isUsed=${otpRecord.isUsed}, expiresAt=${otpRecord.expiresAt}`);
-
-    if (otpRecord.isUsed) {
-      console.log(`[OTP VERIFY] Code ${code} for ${email} has already been used.`);
-      return false;
-    }
-
-    // Robust expiration check
-    const expiryTime = new Date(otpRecord.expiresAt).getTime();
-    const currentTime = Date.now();
-    console.log(`[OTP VERIFY] Now=${new Date(currentTime).toISOString()}, Expiry=${new Date(expiryTime).toISOString()}`);
-    
-    // Give a 1-minute buffer for timezone safety
-    if (currentTime > (expiryTime + 60000)) {
-      console.log(`[OTP VERIFY] Code is EXPIRED.`);
-      return false;
-    }
-    
-    console.log(`[OTP VERIFY] Code VALID for ${email}`);
-    return true;
-  } catch (error) {
-    console.error("[Database] Failed to verify OTP:", error);
-    return false;
-  }
-}
-
-export async function markOtpAsUsed(email: string, code: string) {
-  const db = await getDb();
-  if (!db) {
-    throw new Error("Database not available");
-  }
-
-  try {
-    await db
-      .update(otpCodes)
-      .set({ isUsed: 1 })
-      .where(and(eq(otpCodes.email, email), eq(otpCodes.code, code)));
-  } catch (error) {
-    console.error("[Database] Failed to mark OTP as used:", error);
-    throw error;
-  }
-}
-
-export async function cleanupExpiredOtps() {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot cleanup OTPs: database not available");
-    return;
-  }
-
-  try {
-    await db.delete(otpCodes).where(lt(otpCodes.expiresAt, new Date()));
-  } catch (error) {
-    console.error("[Database] Failed to cleanup expired OTPs:", error);
   }
 }
 
