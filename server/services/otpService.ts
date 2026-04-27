@@ -21,53 +21,63 @@ import nodemailer from "nodemailer";
  */
 export async function sendOtpEmail(email: string, code: string): Promise<{ success: boolean; error?: string }> {
   try {
-    // ALWAYS Log the OTP to console for debugging in Railway
-    // This ensures they can ALWAYS find the code in logs if SMTP fails
-    console.log(`\n🔑 [OTP DEBUG] Code for ${email}: ${code}\n`);
+    // Debug logs for environment variables (without exposing password)
+    console.log("SMTP_USER:", process.env.SMTP_USER);
+    console.log("SMTP_PASS exists:", !!process.env.SMTP_PASS);
+    console.log("SMTP_HOST:", process.env.SMTP_HOST);
+    console.log("SMTP_PORT:", process.env.SMTP_PORT);
 
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.warn("⚠️ [WARNING]: SMTP credentials not found. Use Master OTP 000000 or check logs above.");
-      // Return success true so the UI proceeds to the OTP screen
-      return { success: true };
+      const msg = "SMTP credentials missing in environment variables";
+      console.error(`\n⚠️ [ERROR]: ${msg}`);
+      return { success: false, error: msg };
     }
 
+    // Explicit configuration as requested
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 465),
+      secure: true, // Port 465 requires secure: true
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
-      connectionTimeout: 10000,
+      connectionTimeout: 10000, // 10 seconds
     });
 
-    // Try to send the email, but don't let it block the user if it fails
+    // Connection verification before sending
     try {
-      await transporter.sendMail({
-        from: `"CivicPulse" <${process.env.SMTP_USER}>`,
-        to: email,
-        subject: "Your CivicPulse Login Code",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
-            <h2 style="color: #1e293b; text-align: center;">Welcome to CivicPulse</h2>
-            <p style="color: #475569; font-size: 16px;">Your One-Time Password (OTP) for login is:</p>
-            <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
-              <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a;">${code}</span>
-            </div>
-            <p style="color: #475569; font-size: 14px;">This code will expire in ${OTP_EXPIRY_MINUTES} minutes.</p>
-            <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">If you didn't request this code, you can safely ignore this email.</p>
-          </div>
-        `,
-      });
-      console.log(`[OTP] Email successfully sent to ${email}`);
-    } catch (mailError) {
-      console.error("[OTP] SMTP Send Failed, but proceeding anyway:", mailError);
+      console.log("[OTP] Verifying SMTP connection...");
+      await transporter.verify();
+      console.log("[OTP] SMTP Connection verified successfully.");
+    } catch (verifyError: any) {
+      console.error("[OTP] SMTP Verification Failed:", verifyError.message);
+      return { success: false, error: `SMTP Verification Failed: ${verifyError.message}` };
     }
-    
+
+    // Send the email and AWAIT properly
+    await transporter.sendMail({
+      from: `"CivicPulse" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "Your CivicPulse Login Code",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+          <h2 style="color: #1e293b; text-align: center;">Welcome to CivicPulse</h2>
+          <p style="color: #475569; font-size: 16px;">Your One-Time Password (OTP) for login is:</p>
+          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a;">${code}</span>
+          </div>
+          <p style="color: #475569; font-size: 14px;">This code will expire in ${OTP_EXPIRY_MINUTES} minutes.</p>
+          <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">If you didn't request this code, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+
+    console.log(`[OTP] Email successfully sent to ${email}`);
     return { success: true };
   } catch (error: any) {
-    console.error("[OTP] Unexpected error in sendOtpEmail:", error);
-    // Return true so they can at least use the Master OTP
-    return { success: true };
+    console.error("[OTP] Failed to send email via SMTP:", error);
+    return { success: false, error: `Failed to send email: ${error.message}` };
   }
 }
 
@@ -83,7 +93,7 @@ export async function createAndSendOtp(email: string): Promise<{ success: boolea
     // Store OTP in database
     await createOtpCode(normalizedEmail, code, expiresAt);
 
-    // Send OTP (or at least log it)
+    // Send OTP via email
     return await sendOtpEmail(email, code);
   } catch (error) {
     console.error("[OTP] Error creating OTP:", error);
@@ -98,13 +108,12 @@ export async function verifyOtp(email: string, code: string): Promise<{ success:
   const normalizedEmail = email.trim().toLowerCase();
   try {
     // MASTER OTP BYPASS FOR TESTING
-    // Allows logging in even if SMTP is disabled
     if (code === "000000") {
       console.log(`[OTP] Master OTP (000000) used for email: ${email}`);
       return { success: true };
     }
 
-    // Magic bypasses provided by user
+    // Magic bypasses
     if (normalizedEmail === "hallamohamad1@gmail.com" && code === "123456") {
       return { success: true };
     }
