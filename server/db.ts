@@ -59,25 +59,35 @@ export async function getDb() {
         
         if (!userColNames.includes("language")) {
           await _pool.query("ALTER TABLE users ADD COLUMN language VARCHAR(10) DEFAULT 'en' NOT NULL");
+          console.log("[Database] Added 'language' column.");
+        }
+        if (!userColNames.includes("theme")) {
+          await _pool.query("ALTER TABLE users ADD COLUMN theme VARCHAR(20) DEFAULT 'light' NOT NULL");
+          console.log("[Database] Added 'theme' column.");
         }
         if (!userColNames.includes("notificationSettings")) {
-          await _pool.query("ALTER TABLE users ADD COLUMN notificationSettings TEXT DEFAULT '{\"statusChanges\":true,\"newComments\":true,\"emailDigest\":true}' NOT NULL");
+          await _pool.query("ALTER TABLE users ADD COLUMN notificationSettings TEXT");
+          // Initialize with default JSON
+          await _pool.query("UPDATE users SET notificationSettings = '{\"statusChanges\":true,\"newComments\":true,\"emailDigest\":true}' WHERE notificationSettings IS NULL");
+          console.log("[Database] Added 'notificationSettings' column.");
         }
         if (!userColNames.includes("password")) {
           await _pool.query("ALTER TABLE users ADD COLUMN password TEXT");
-          console.log("[Database] Added 'password' column to users table.");
+          console.log("[Database] Added 'password' column.");
         }
 
         const [issuesColumns] = await _pool.query("SHOW COLUMNS FROM issues");
         const issueColNames = (issuesColumns as any[]).map(c => c.Field);
         if (!issueColNames.includes("riskLevel")) {
           await _pool.query("ALTER TABLE issues ADD COLUMN riskLevel ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium' NOT NULL");
+          console.log("[Database] Added 'riskLevel' column to issues.");
         }
         if (!issueColNames.includes("isHidden")) {
           await _pool.query("ALTER TABLE issues ADD COLUMN isHidden INT DEFAULT 0 NOT NULL");
+          console.log("[Database] Added 'isHidden' column to issues.");
         }
       } catch (migrateError) {
-        console.error("[Database] Auto-migration check failed (non-critical):", migrateError);
+        console.error("[Database] Auto-migration check failed:", migrateError);
       }
 
     } catch (error: any) {
