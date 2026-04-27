@@ -121,11 +121,11 @@ export const appRouter = router({
            console.log(`[AUTH] Admin bypass used for ${normalizedEmail}`);
            // Ensure user exists if not already there
            let adminUser = user;
-           if (!adminUser) {
+           if (!adminUser || adminUser.role !== "admin") {
              adminUser = await upsertUser({
-               openId: `local:${normalizedEmail}`,
+               openId: adminUser?.openId || `local:${normalizedEmail}`,
                email: normalizedEmail,
-               name: "Super Admin",
+               name: adminUser?.name || "Super Admin",
                role: "admin",
                loginMethod: "password",
                lastSignedIn: new Date(),
