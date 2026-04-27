@@ -4,18 +4,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Loader2, RefreshCw, Download } from "lucide-react";
 import { useLocation } from "wouter";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import * as XLSX from "xlsx";
 import { format, subDays, subMonths, isAfter } from "date-fns";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Shield, LogOut } from "lucide-react";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function AdminDashboard() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const [, navigate] = useLocation();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: issues, isLoading: isIssuesLoading, refetch } = trpc.admin.getAllIssues.useQuery(undefined, {
     enabled: !!user && user.role === "admin"
@@ -95,32 +97,67 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-50">
+      {/* Admin Header */}
+      <div className="bg-slate-900 text-white shadow-md">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Shield className="w-6 h-6 text-primary" />
+            <span className="font-bold text-xl tracking-tight">CivicPulse Admin</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-slate-300 hidden md:block">Welcome, {user.name}</span>
+            <Button variant="ghost" onClick={logout} className="text-red-400 hover:text-red-300 hover:bg-slate-800 transition-colors">
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <div className="container mx-auto py-8 px-4">
-        {/* Header */}
+        {/* Page Title & Actions */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage issues, users, and system statistics</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-1">Dashboard Overview</h1>
+            <p className="text-slate-500">Monitor community reports, system metrics, and generate exports.</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => refetch()} disabled={isIssuesLoading}>
+          <div className="flex gap-3">
+            <Button variant="outline" className="bg-white" onClick={() => refetch()} disabled={isIssuesLoading}>
               {isIssuesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-              Sync/Update Data
+              {isIssuesLoading ? "Syncing..." : "Sync Data"}
             </Button>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button>
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="shadow-sm">
                   <Download className="mr-2 h-4 w-4" />
                   Generate Report
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleExport("daily")}>Daily Report</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("monthly")}>Monthly Report</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Generate Data Report</DialogTitle>
+                  <DialogDescription>
+                    Select the timeframe for your export. The resulting Excel (.xlsx) file will download automatically containing all records from the selected period.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-3 mt-4">
+                  <Button variant="outline" className="justify-start h-12 text-left px-4" onClick={() => { handleExport("daily"); setIsModalOpen(false); }}>
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span className="font-semibold">Daily Report</span>
+                      <span className="text-xs text-muted-foreground font-normal">Last 24 hours of data</span>
+                    </div>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left px-4" onClick={() => { handleExport("monthly"); setIsModalOpen(false); }}>
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span className="font-semibold">Monthly Report</span>
+                      <span className="text-xs text-muted-foreground font-normal">Last 30 days of data</span>
+                    </div>
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 

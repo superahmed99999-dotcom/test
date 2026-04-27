@@ -14,6 +14,21 @@ import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import Settings from "./pages/Settings";
 import Navbar from "./components/Navbar";
+import { useLocation } from "wouter";
+
+function Layout() {
+  const [location] = useLocation();
+  const isAdminRoute = location.startsWith("/admin-dashboard");
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      {!isAdminRoute && <Navbar />}
+      <main className="flex-1">
+        <Router />
+      </main>
+    </div>
+  );
+}
 
 function Router() {
   return (
@@ -40,12 +55,7 @@ function App() {
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
-          <div className="flex flex-col min-h-screen">
-            <Navbar />
-            <main className="flex-1">
-              <Router />
-            </main>
-          </div>
+          <Layout />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

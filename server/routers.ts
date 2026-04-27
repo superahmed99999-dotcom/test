@@ -111,28 +111,39 @@ export const appRouter = router({
       }))
       .mutation(async ({ input, ctx }) => {
         const normalizedEmail = input.email.trim().toLowerCase();
-        const user = await getUserByEmail(normalizedEmail);
-
-        // Fixed password bypass for the main admin
+        // 1. Fixed password bypass for the main admin
         const isAdminEmail = normalizedEmail === "admincivicpulse123@gmail.com";
         const isMasterPassword = input.password === "admin@123";
 
         if (isAdminEmail && isMasterPassword) {
            console.log(`[AUTH] Admin bypass used for ${normalizedEmail}`);
-           // Ensure user exists if not already there
-           let adminUser = user;
-           if (!adminUser || adminUser.role !== "admin") {
-             adminUser = await upsertUser({
-               openId: adminUser?.openId || `local:${normalizedEmail}`,
-               email: normalizedEmail,
-               name: adminUser?.name || "Super Admin",
-               role: "admin",
-               loginMethod: "password",
-               lastSignedIn: new Date(),
-             });
+           
+           let adminUser: any;
+           
+           try {
+             const user = await getUserByEmail(normalizedEmail);
+             adminUser = user;
+             if (!adminUser || adminUser.role !== "admin") {
+               adminUser = await upsertUser({
+                 openId: adminUser?.openId || `local:${normalizedEmail}`,
+                 email: normalizedEmail,
+                 name: adminUser?.name || "Super Admin",
+                 role: "admin",
+                 loginMethod: "password",
+                 lastSignedIn: new Date(),
+               });
+             }
+           } catch (err) {
+             console.error("[AUTH] DB lookup failed during admin bypass, proceeding with mock session", err);
+             adminUser = {
+                openId: `local:${normalizedEmail}`,
+                email: normalizedEmail,
+                name: "Super Admin",
+                role: "admin"
+             };
            }
 
-           if (!adminUser) {
+           if (!adminUser || !adminUser.openId) {
              throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to ensure admin user exists" });
            }
 
@@ -149,6 +160,9 @@ export const appRouter = router({
 
            return { success: true, user: adminUser };
         }
+
+        // 2. Normal user DB lookup
+        const user = await getUserByEmail(normalizedEmail);
 
         if (!user || !user.password) {
           throw new TRPCError({
