@@ -31,8 +31,12 @@ export default function SignIn() {
       
       if (result.success) {
         toast.success("Welcome back!");
-        // Refresh to update auth state
-        window.location.href = "/dashboard";
+        // Redirect based on user role
+        if (result.user.role === "admin") {
+          window.location.href = "/admin-dashboard";
+        } else {
+          window.location.href = "/dashboard";
+        }
       }
     } catch (error: any) {
       toast.error(error.message || "Invalid email or password");

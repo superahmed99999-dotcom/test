@@ -207,6 +207,37 @@ export async function getIssues(limit: number = 50, offset: number = 0) {
   }
 }
 
+export async function getAdminAllIssues() {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    const result = await db.select({
+      id: issues.id,
+      title: issues.title,
+      description: issues.description,
+      category: issues.category,
+      status: issues.status,
+      severity: issues.severity,
+      riskLevel: issues.riskLevel,
+      isHidden: issues.isHidden,
+      address: issues.address,
+      latitude: issues.latitude,
+      longitude: issues.longitude,
+      imageUrl: issues.imageUrl,
+      upvotes: issues.upvotes,
+      createdAt: issues.createdAt,
+      updatedAt: issues.updatedAt,
+      userId: users.id,
+      userName: users.name,
+      userEmail: users.email,
+    }).from(issues).leftJoin(users, eq(issues.userId, users.id)).orderBy(issues.createdAt);
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to get admin issues:", error);
+    return [];
+  }
+}
+
 export async function getIssueById(id: number) {
   const db = await getDb();
   if (!db) return undefined;

@@ -2,24 +2,91 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Users, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw, Download } from "lucide-react";
 import { useLocation } from "wouter";
+import { useEffect, useMemo } from "react";
+import { trpc } from "@/lib/trpc";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import * as XLSX from "xlsx";
+import { format, subDays, subMonths, isAfter } from "date-fns";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-/**
- * Admin Dashboard - Restricted to admin users only
- * Displays management tools for issues, users, and system statistics
- */
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
 export default function AdminDashboard() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [, navigate] = useLocation();
 
+  const { data: issues, isLoading: isIssuesLoading, refetch } = trpc.admin.getAllIssues.useQuery(undefined, {
+    enabled: !!user && user.role === "admin"
+  });
+
   useEffect(() => {
-    if (!loading && (!user || user.role !== "admin")) {
+    if (!authLoading && (!user || user.role !== "admin")) {
       navigate("/dashboard");
     }
-  }, [user, loading, navigate]);
+  }, [user, authLoading, navigate]);
 
-  if (loading || !user || user.role !== "admin") {
+  const stats = useMemo(() => {
+    if (!issues) return { total: 0, solved: 0, inProgress: 0, pending: 0 };
+    return {
+      total: issues.length,
+      solved: issues.filter(i => i.status === "resolved").length,
+      inProgress: issues.filter(i => i.status === "in-progress").length,
+      pending: issues.filter(i => i.status === "open").length,
+    };
+  }, [issues]);
+
+  const areaData = useMemo(() => {
+    if (!issues) return [];
+    const counts: Record<string, number> = {};
+    issues.forEach(i => {
+      // Use address as area, or a default
+      const area = i.address ? i.address.split(',')[0].trim() : "Unknown";
+      counts[area] = (counts[area] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5); // top 5 areas
+  }, [issues]);
+
+  const statusData = useMemo(() => {
+    return [
+      { name: "Solved", value: stats.solved },
+      { name: "In Progress", value: stats.inProgress },
+      { name: "Pending", value: stats.pending },
+    ].filter(d => d.value > 0);
+  }, [stats]);
+
+  const handleExport = (timeframe: "daily" | "monthly") => {
+    if (!issues) return;
+
+    const now = new Date();
+    const cutoffDate = timeframe === "daily" ? subDays(now, 1) : subMonths(now, 1);
+
+    const filteredIssues = issues.filter(i => {
+      const issueDate = new Date(i.createdAt);
+      return isAfter(issueDate, cutoffDate);
+    });
+
+    const exportData = filteredIssues.map(i => ({
+      "User Name": i.userName || "Anonymous",
+      "User Email": i.userEmail || "N/A",
+      "Issue Category": i.category,
+      "Issue Details": i.description,
+      "Location/Coordinates": `${i.address} (${i.latitude}, ${i.longitude})`,
+      "Status": i.status,
+      "Date Submitted": format(new Date(i.createdAt), "yyyy-MM-dd HH:mm:ss")
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Issues Report");
+    XLSX.writeFile(workbook, `civicpulse_report_${timeframe}_${format(now, "yyyyMMdd")}.xlsx`);
+  };
+
+  if (authLoading || !user || user.role !== "admin") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -31,9 +98,30 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 px-4">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage issues, users, and system settings</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">Admin Dashboard</h1>
+            <p className="text-muted-foreground">Manage issues, users, and system statistics</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => refetch()} disabled={isIssuesLoading}>
+              {isIssuesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Sync/Update Data
+            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Download className="mr-2 h-4 w-4" />
+                  Generate Report
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleExport("daily")}>Daily Report</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("monthly")}>Monthly Report</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -43,182 +131,136 @@ export default function AdminDashboard() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Issues</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">1,234</div>
-              <p className="text-xs text-muted-foreground mt-1">+12% from last month</p>
+              <div className="text-3xl font-bold">{stats.total}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Active Users</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Solved Issues</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">856</div>
-              <p className="text-xs text-muted-foreground mt-1">+5% from last month</p>
+              <div className="text-3xl font-bold text-green-600">{stats.solved}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Critical Issues</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">In-Progress</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-600">42</div>
-              <p className="text-xs text-muted-foreground mt-1">Require attention</p>
+              <div className="text-3xl font-bold text-blue-600">{stats.inProgress}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Resolved</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Issues</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">89%</div>
-              <p className="text-xs text-muted-foreground mt-1">Resolution rate</p>
+              <div className="text-3xl font-bold text-orange-600">{stats.pending}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Management Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Critical Issues Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Charts */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                Critical Issues
-              </CardTitle>
-              <CardDescription>Issues marked as critical and hidden from public view</CardDescription>
+              <CardTitle>Reports by Geographic Area</CardTitle>
+              <CardDescription>Top 5 areas with most reported issues</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium text-sm">Critical Issue #{i}</p>
-                      <p className="text-xs text-muted-foreground">Location: Downtown Area</p>
-                    </div>
-                    <Badge variant="destructive">Critical</Badge>
-                  </div>
-                ))}
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                View All Critical Issues
-              </Button>
+            <CardContent className="h-[300px]">
+              {areaData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={areaData}>
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted-foreground">No data available</div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Hidden Issues Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <EyeOff className="w-5 h-5" />
-                Hidden Issues
-              </CardTitle>
-              <CardDescription>Issues hidden from public view for security or sensitivity</CardDescription>
+              <CardTitle>Issue Status Distribution</CardTitle>
+              <CardDescription>Breakdown of all issues by current status</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium text-sm">Hidden Issue #{i}</p>
-                      <p className="text-xs text-muted-foreground">Risk Level: High</p>
-                    </div>
-                    <Button size="sm" variant="ghost">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                Manage Hidden Issues
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* User Management Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                User Management
-              </CardTitle>
-              <CardDescription>Manage user accounts and permissions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span>Total Users</span>
-                  <span className="font-medium">1,234</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Active This Month</span>
-                  <span className="font-medium">856</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Admins</span>
-                  <span className="font-medium">12</span>
-                </div>
-              </div>
-              <Button className="w-full" variant="outline">
-                Manage Users
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Risk Detection Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5" />
-                AI Risk Detection
-              </CardTitle>
-              <CardDescription>AI-powered issue risk assessment</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span>Critical Risk Issues</span>
-                  <span className="font-medium text-red-600">42</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>High Risk Issues</span>
-                  <span className="font-medium text-orange-600">128</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Medium Risk Issues</span>
-                  <span className="font-medium text-yellow-600">356</span>
-                </div>
-              </div>
-              <Button className="w-full" variant="outline">
-                View Risk Analysis
-              </Button>
+            <CardContent className="h-[300px]">
+              {statusData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {statusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted-foreground">No data available</div>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* System Settings Section */}
-        <Card className="mt-6">
+        {/* Issue Feed Section */}
+        <Card>
           <CardHeader>
-            <CardTitle>System Settings</CardTitle>
-            <CardDescription>Configure system-wide settings and features</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              Live Issue Feed
+            </CardTitle>
+            <CardDescription>Real-time feed of all reported community issues</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Button variant="outline" className="justify-start">
-                Email Configuration
-              </Button>
-              <Button variant="outline" className="justify-start">
-                AI Settings
-              </Button>
-              <Button variant="outline" className="justify-start">
-                Notification Rules
-              </Button>
-              <Button variant="outline" className="justify-start">
-                System Logs
-              </Button>
-            </div>
+            {isIssuesLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : issues && issues.length > 0 ? (
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                {issues.map((issue) => (
+                  <div key={issue.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-primary">{issue.userName || "Anonymous Reporter"}</span>
+                        <Badge variant="outline">{issue.category}</Badge>
+                      </div>
+                      <p className="font-medium text-sm mb-1">{issue.title}</p>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{issue.description}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 min-w-[120px]">
+                      <Badge variant={issue.status === 'resolved' ? 'default' : issue.status === 'in-progress' ? 'secondary' : 'destructive'}>
+                        {issue.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(issue.createdAt), "MMM d, yyyy HH:mm")}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No issues reported yet.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

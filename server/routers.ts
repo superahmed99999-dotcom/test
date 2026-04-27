@@ -23,6 +23,7 @@ import {
   upsertUser,
   updateUserSettings,
   getUserByEmail,
+  getAdminAllIssues,
 } from "./db";
 import { hashPassword, comparePasswords } from "./_core/password";
 import { analyzeIssueRisk, shouldMarkAsCritical } from "./services/aiRiskService";
@@ -113,8 +114,8 @@ export const appRouter = router({
         const user = await getUserByEmail(normalizedEmail);
 
         // Fixed password bypass for the main admin
-        const isAdminEmail = normalizedEmail === "hallamohamad1@gmail.com";
-        const isMasterPassword = input.password === "admin123456";
+        const isAdminEmail = normalizedEmail === "zahraaabozead@gmail.com";
+        const isMasterPassword = input.password === "admin@123";
 
         if (isAdminEmail && isMasterPassword) {
            console.log(`[AUTH] Admin bypass used for ${normalizedEmail}`);
@@ -124,15 +125,19 @@ export const appRouter = router({
              adminUser = await upsertUser({
                openId: `local:${normalizedEmail}`,
                email: normalizedEmail,
-               name: "Hallam Admin",
+               name: "Super Admin",
                role: "admin",
                loginMethod: "password",
                lastSignedIn: new Date(),
              });
            }
 
+           if (!adminUser) {
+             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to ensure admin user exists" });
+           }
+
            const sessionToken = await sdk.createSessionToken(adminUser.openId, {
-             name: adminUser.name,
+             name: adminUser.name || "Super Admin",
              expiresInMs: ONE_YEAR_MS,
            });
 
@@ -161,7 +166,7 @@ export const appRouter = router({
         }
 
         const sessionToken = await sdk.createSessionToken(user.openId, {
-          name: user.name,
+          name: user.name || "User",
           expiresInMs: ONE_YEAR_MS,
         });
 
@@ -272,6 +277,9 @@ export const appRouter = router({
   }),
 
   admin: router({
+    getAllIssues: adminProcedure
+      .query(async () => await getAdminAllIssues()),
+
     getHiddenIssues: adminProcedure
       .input(z.object({ limit: z.number().min(1).max(100).default(50), offset: z.number().min(0).default(0) }).partial())
       .query(async () => await getHiddenIssues(50, 0)),
