@@ -50,6 +50,37 @@ export async function getDb() {
       ]);
       
       console.log(`[Database] Connected to ${url.hostname} successfully.`);
+
+      // AUTO-MIGRATION CHECK: Add missing columns if they don't exist
+      // This solves the "Unknown column" errors on Railway
+      try {
+        console.log("[Database] Running auto-migration check...");
+        const [usersColumns] = await _pool.query("SHOW COLUMNS FROM users");
+        const userColNames = (usersColumns as any[]).map(c => c.Field);
+        
+        if (!userColNames.includes("language")) {
+          await _pool.query("ALTER TABLE users ADD COLUMN language VARCHAR(10) DEFAULT 'en' NOT NULL");
+          console.log("[Database] Added 'language' column to users table.");
+        }
+        if (!userColNames.includes("notificationSettings")) {
+          await _pool.query("ALTER TABLE users ADD COLUMN notificationSettings TEXT DEFAULT '{\"statusChanges\":true,\"newComments\":true,\"emailDigest\":true}' NOT NULL");
+          console.log("[Database] Added 'notificationSettings' column to users table.");
+        }
+
+        const [issuesColumns] = await _pool.query("SHOW COLUMNS FROM issues");
+        const issueColNames = (issuesColumns as any[]).map(c => c.Field);
+        if (!issueColNames.includes("riskLevel")) {
+          await _pool.query("ALTER TABLE issues ADD COLUMN riskLevel ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium' NOT NULL");
+          console.log("[Database] Added 'riskLevel' column to issues table.");
+        }
+        if (!issueColNames.includes("isHidden")) {
+          await _pool.query("ALTER TABLE issues ADD COLUMN isHidden INT DEFAULT 0 NOT NULL");
+          console.log("[Database] Added 'isHidden' column to issues table.");
+        }
+      } catch (migrateError) {
+        console.error("[Database] Auto-migration check failed (non-critical):", migrateError);
+      }
+
     } catch (error: any) {
       console.error("[Database] Setup failed:", error.message || error);
       _db = null;
