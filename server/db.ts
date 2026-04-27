@@ -132,12 +132,20 @@ export async function upsertUser(user: InsertUser): Promise<any> {
       values.lastSignedIn = user.lastSignedIn;
       updateSet.lastSignedIn = user.lastSignedIn;
     }
+    const adminEmails = [
+      "supermohamed55555@gmail.com",
+      "hallamohamad1@gmail.com", // Adding your email too as requested/needed
+    ];
+
     if (user.role !== undefined) {
       values.role = user.role;
       updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId || user.email === "supermohamed55555@gmail.com") {
+    } else if (user.openId === ENV.ownerOpenId || (user.email && adminEmails.includes(user.email.toLowerCase()))) {
       values.role = 'admin';
       updateSet.role = 'admin';
+    } else {
+      values.role = 'user';
+      updateSet.role = 'user';
     }
 
     if (!values.lastSignedIn) {

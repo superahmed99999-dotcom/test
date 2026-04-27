@@ -11,18 +11,18 @@ import { useLocation } from "wouter";
  */
 export default function AdminDashboard() {
   const { user, loading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
 
-  // Redirect non-admins to home
-  if (!loading && (!user || user.role !== "admin")) {
-    setLocation("/");
-    return null;
-  }
+  useEffect(() => {
+    if (!loading && (!user || user.role !== "admin")) {
+      navigate("/dashboard");
+    }
+  }, [user, loading, navigate]);
 
-  if (loading) {
+  if (loading || !user || user.role !== "admin") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
