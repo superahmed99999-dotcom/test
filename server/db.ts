@@ -432,7 +432,13 @@ export async function createOtpCode(email: string, code: string, expiresAt: Date
   }
 
   try {
+    // Delete any old OTPs for this email before creating a new one
+    // This prevents stale codes from interfering with verification
+    await db.delete(otpCodes).where(eq(otpCodes.email, email));
+    console.log(`[OTP] Cleared old OTPs for ${email}`);
+
     const result = await db.insert(otpCodes).values({ email, code, expiresAt });
+    console.log(`[OTP] Created new OTP for ${email}, expires at ${expiresAt.toISOString()}`);
     return result;
   } catch (error) {
     console.error("[Database] Failed to create OTP code:", error);
@@ -448,18 +454,37 @@ export async function verifyOtpCode(email: string, code: string) {
   }
 
   try {
+    console.log(`[OTP VERIFY] Checking email="${email}" code="${code}"`);
+
+    // Fetch the latest OTP for this email (regardless of code) for debug logging
+    const allForEmail = await db
+      .select()
+      .from(otpCodes)
+      .where(eq(otpCodes.email, email))
+      .limit(5);
+
+    console.log(`[OTP VERIFY] Records in DB for ${email}:`, allForEmail.map(r => ({
+      code: r.code,
+      isUsed: r.isUsed,
+      expiresAt: r.expiresAt,
+    })));
+
+    // Now find the exact matching record, ordered newest-first
     const result = await db
       .select()
       .from(otpCodes)
       .where(and(eq(otpCodes.email, email), eq(otpCodes.code, code)))
+      .orderBy(sql`${otpCodes.expiresAt} DESC`)
       .limit(1);
     
     if (result.length === 0) {
-      console.log(`[OTP VERIFY] No record found for ${email} with code ${code}`);
+      console.log(`[OTP VERIFY] No matching record found for email="${email}" code="${code}"`);
       return false;
     }
     
     const otpRecord = result[0];
+    console.log(`[OTP VERIFY] Found record: code=${otpRecord.code}, isUsed=${otpRecord.isUsed}, expiresAt=${otpRecord.expiresAt}`);
+
     if (otpRecord.isUsed) {
       console.log(`[OTP VERIFY] Code ${code} for ${email} has already been used.`);
       return false;
@@ -468,13 +493,15 @@ export async function verifyOtpCode(email: string, code: string) {
     // Robust expiration check
     const expiryTime = new Date(otpRecord.expiresAt).getTime();
     const currentTime = Date.now();
+    console.log(`[OTP VERIFY] Now=${new Date(currentTime).toISOString()}, Expiry=${new Date(expiryTime).toISOString()}`);
     
-    // Give a 1-minute buffer for safety
+    // Give a 1-minute buffer for timezone safety
     if (currentTime > (expiryTime + 60000)) {
-      console.log(`[OTP VERIFY] Expired. Current: ${new Date(currentTime).toISOString()}, Expiry: ${new Date(expiryTime).toISOString()}`);
+      console.log(`[OTP VERIFY] Code is EXPIRED.`);
       return false;
     }
     
+    console.log(`[OTP VERIFY] Code VALID for ${email}`);
     return true;
   } catch (error) {
     console.error("[Database] Failed to verify OTP:", error);

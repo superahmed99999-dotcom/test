@@ -79,7 +79,7 @@ export async function createAndSendOtp(email: string): Promise<{ success: boolea
     await createOtpCode(normalizedEmail, code, expiresAt);
 
     // Send OTP via Resend
-    return await sendOtpEmail(email, code);
+    return await sendOtpEmail(normalizedEmail, code);
   } catch (error) {
     console.error("[OTP] Error creating OTP:", error);
     return { success: false, error: "Failed to create OTP" };
