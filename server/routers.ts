@@ -50,6 +50,7 @@ export const appRouter = router({
     updateSettings: protectedProcedure
       .input(z.object({
         language: z.string().optional(),
+        theme: z.string().optional(),
         notificationSettings: z.string().optional()
       }))
       .mutation(async ({ input, ctx }) => {

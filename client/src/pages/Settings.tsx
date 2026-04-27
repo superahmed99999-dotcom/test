@@ -12,6 +12,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 export default function Settings() {
   const { user } = useAuth();
   const [language, setLanguage] = useState("en");
+  const [theme, setTheme] = useState("light");
   const [notifications, setNotifications] = useState({
     statusChanges: true,
     newComments: true,
@@ -31,6 +32,7 @@ export default function Settings() {
   useEffect(() => {
     if (user) {
       if ((user as any).language) setLanguage((user as any).language);
+      if ((user as any).theme) setTheme((user as any).theme);
       if ((user as any).notificationSettings) {
         try {
           const parsed = JSON.parse((user as any).notificationSettings);
@@ -45,6 +47,7 @@ export default function Settings() {
   const handleSave = async () => {
     await updateSettings.mutateAsync({
       language,
+      theme,
       notificationSettings: JSON.stringify(notifications)
     });
   };
@@ -181,7 +184,10 @@ export default function Settings() {
                     <Label className="text-base">Dark Mode</Label>
                     <p className="text-sm text-slate-500">Switch between light and dark interface themes</p>
                   </div>
-                  <Switch />
+                  <Switch 
+                    checked={theme === "dark"} 
+                    onCheckedChange={(val) => setTheme(val ? "dark" : "light")} 
+                  />
                 </div>
               </CardContent>
             </Card>

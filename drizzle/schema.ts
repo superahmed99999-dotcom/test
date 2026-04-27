@@ -21,6 +21,7 @@ export const users = mysqlTable("users", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
   language: varchar("language", { length: 10 }).default("en").notNull(),
+  theme: varchar("theme", { length: 20 }).default("light").notNull(),
   notificationSettings: text("notificationSettings").default('{"statusChanges":true,"newComments":true,"emailDigest":true}').notNull(),
 });
 

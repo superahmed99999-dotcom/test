@@ -160,7 +160,7 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function updateUserSettings(userId: number, data: { language?: string; notificationSettings?: string }) {
+export async function updateUserSettings(userId: number, data: { language?: string; theme?: string; notificationSettings?: string }) {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
