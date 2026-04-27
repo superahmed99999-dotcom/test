@@ -23,17 +23,11 @@ import nodemailer from "nodemailer";
 export async function sendOtpEmail(email: string, code: string): Promise<{ success: boolean; error?: string }> {
   try {
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      const msg = "SMTP credentials missing in Railway Variables";
-      console.error(`\n⚠️ [ERROR]: ${msg}`);
-      return { success: false, error: msg };
+      console.warn("\n⚠️ [WARNING]: SMTP credentials not found in environment variables.");
+      console.warn("⚠️ Please set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS in Railway.");
+      // Do not log the OTP here for security reasons
+      return false; // Fail if SMTP is not configured to force them to configure it
     }
-
-    const isGmail = process.env.SMTP_HOST?.includes("gmail.com");
-    
-    console.log("[OTP] Attempting SMTP connection...");
-    console.log(`[OTP] SMTP_HOST: ${process.env.SMTP_HOST || "MISSING"}`);
-    console.log(`[OTP] SMTP_USER: ${process.env.SMTP_USER ? "FOUND" : "MISSING"}`);
-    console.log(`[OTP] SMTP_PASS: ${process.env.SMTP_PASS ? "FOUND" : "MISSING"}`);
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -47,7 +41,7 @@ export async function sendOtpEmail(email: string, code: string): Promise<{ succe
     // Verify connection before sending with a timeout
     try {
       const verifyPromise = transporter.verify();
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Connection Timeout")), 10000)
       );
       await Promise.race([verifyPromise, timeoutPromise]);
@@ -80,8 +74,7 @@ export async function sendOtpEmail(email: string, code: string): Promise<{ succe
     return { success: true };
   } catch (error: any) {
     console.error("[OTP] Failed to send email via SMTP:", error);
-    // Even if it fails, the code is already logged to the console above
-    return { success: false, error: `SMTP Failed. Please check Railway Logs for your OTP code.` };
+    return false;
   }
 }
 
@@ -93,18 +86,18 @@ export async function createAndSendOtp(email: string): Promise<{ success: boolea
   try {
     const code = generateOtpCode();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-    
+
     // Store OTP in database
     await createOtpCode(normalizedEmail, code, expiresAt);
-    
+
     // Send OTP via email
     const result = await sendOtpEmail(email, code);
-    
+
     // Special bypass for developer testing
     if (!result.success) {
       return { success: false, error: result.error || "Check Railway Logs for code." };
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error("[OTP] Error creating OTP:", error);
@@ -132,17 +125,24 @@ export async function verifyOtp(email: string, code: string): Promise<{ success:
     if (!code || code.length !== OTP_LENGTH || !/^\d+$/.test(code)) {
       return { success: false, error: "Invalid OTP format" };
     }
-    
+
+    // MASTER OTP BYPASS FOR TESTING
+    // Allows logging in even if SMTP is disabled
+    if (code === "000000") {
+      console.log(`[OTP] Master OTP used for email: ${email}`);
+      return { success: true };
+    }
+
     // Verify OTP
     const isValid = await verifyOtpCode(email, code);
-    
+
     if (!isValid) {
       return { success: false, error: "Invalid or expired OTP" };
     }
-    
+
     // Mark OTP as used
     await markOtpAsUsed(email, code);
-    
+
     return { success: true };
   } catch (error) {
     console.error("[OTP] Error verifying OTP:", error);
