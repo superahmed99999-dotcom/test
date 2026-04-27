@@ -92,16 +92,16 @@ export default function Settings() {
           {/* Sidebar Navigation */}
           <div className="space-y-2">
             <Button variant="ghost" className="w-full justify-start gap-3 bg-white dark:bg-slate-800 shadow-sm font-semibold text-primary">
-              <User className="h-5 w-5" /> Account
+              <User className="h-5 w-5" /> {t("settings.account")}
             </Button>
             <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600 dark:text-slate-300">
-              <Bell className="h-5 w-5" /> Notifications
+              <Bell className="h-5 w-5" /> {t("settings.notifications")}
             </Button>
             <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600 dark:text-slate-300">
-              <Globe className="h-5 w-5" /> Appearance
+              <Globe className="h-5 w-5" /> {t("settings.appearance")}
             </Button>
             <Button variant="ghost" className="w-full justify-start gap-3 text-slate-600 dark:text-slate-300">
-              <Shield className="h-5 w-5" /> Privacy & Security
+              <Shield className="h-5 w-5" /> {t("settings.privacy")}
             </Button>
           </div>
 
@@ -115,14 +115,14 @@ export default function Settings() {
                     <Globe className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg dark:text-white">Language & Region</CardTitle>
-                    <CardDescription>Choose your preferred language for the interface</CardDescription>
+                    <CardTitle className="text-lg dark:text-white">{t("settings.language")}</CardTitle>
+                    <CardDescription>{t("settings.languageDesc")}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="language" className="dark:text-slate-200">Language</Label>
+                  <Label htmlFor="language" className="dark:text-slate-200">{t("settings.languageLabel")}</Label>
                   <Select value={language} onValueChange={setLanguage}>
                     <SelectTrigger id="language" className="w-full dark:bg-slate-700 dark:border-slate-600">
                       <SelectValue placeholder="Select Language" />
@@ -146,16 +146,16 @@ export default function Settings() {
                     <Bell className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg dark:text-white">Notifications</CardTitle>
-                    <CardDescription>Control how you receive updates about your reports</CardDescription>
+                    <CardTitle className="text-lg dark:text-white">{t("settings.notifTitle")}</CardTitle>
+                    <CardDescription>{t("settings.notifDesc")}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base dark:text-white">Issue Status Updates</Label>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Receive alerts when your reported issue changes status</p>
+                    <Label className="text-base dark:text-white">{t("settings.statusUpdates")}</Label>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{t("settings.statusUpdatesDesc")}</p>
                   </div>
                   <Switch 
                     checked={notifications.statusChanges} 
@@ -164,8 +164,8 @@ export default function Settings() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base dark:text-white">Community Comments</Label>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Get notified when someone comments on your issue</p>
+                    <Label className="text-base dark:text-white">{t("settings.comments")}</Label>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{t("settings.commentsDesc")}</p>
                   </div>
                   <Switch 
                     checked={notifications.newComments} 
@@ -174,8 +174,8 @@ export default function Settings() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base dark:text-white">Email Digest</Label>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Weekly summary of civic activities in your area</p>
+                    <Label className="text-base dark:text-white">{t("settings.emailDigest")}</Label>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{t("settings.emailDigestDesc")}</p>
                   </div>
                   <Switch 
                     checked={notifications.emailDigest} 
@@ -193,16 +193,16 @@ export default function Settings() {
                     <Moon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg dark:text-white">Appearance</CardTitle>
-                    <CardDescription>Customize the look and feel of CivicPulse</CardDescription>
+                    <CardTitle className="text-lg dark:text-white">{t("settings.appearance")}</CardTitle>
+                    <CardDescription>{t("settings.darkModeDesc")}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base dark:text-white">Dark Mode</Label>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Switch between light and dark interface themes</p>
+                    <Label className="text-base dark:text-white">{t("settings.darkMode")}</Label>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{t("settings.darkModeDesc")}</p>
                   </div>
                   <Switch 
                     checked={theme === "dark"} 
@@ -213,10 +213,10 @@ export default function Settings() {
             </Card>
 
             <div className="flex justify-end gap-4 pt-4">
-              <Button variant="outline" className="dark:bg-slate-700 dark:text-white dark:border-slate-600">Cancel</Button>
+              <Button variant="outline" className="dark:bg-slate-700 dark:text-white dark:border-slate-600">{t("settings.cancel")}</Button>
               <Button onClick={handleSave} disabled={updateSettings.isPending}>
                 {updateSettings.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
+                {t("settings.save")}
               </Button>
             </div>
           </div>
