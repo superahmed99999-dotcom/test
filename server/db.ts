@@ -465,11 +465,13 @@ export async function verifyOtpCode(email: string, code: string) {
       return false;
     }
 
-    // Check if OTP is expired (Using a 5-minute grace period for timezone safety)
-    const now = Date.now();
-    const expiry = new Date(otpRecord.expiresAt).getTime();
-    if (now > expiry) {
-      console.log(`[OTP VERIFY] Code ${code} for ${email} expired at ${otpRecord.expiresAt}. Current server time: ${new Date().toISOString()}`);
+    // Robust expiration check
+    const expiryTime = new Date(otpRecord.expiresAt).getTime();
+    const currentTime = Date.now();
+    
+    // Give a 1-minute buffer for safety
+    if (currentTime > (expiryTime + 60000)) {
+      console.log(`[OTP VERIFY] Expired. Current: ${new Date(currentTime).toISOString()}, Expiry: ${new Date(expiryTime).toISOString()}`);
       return false;
     }
     
