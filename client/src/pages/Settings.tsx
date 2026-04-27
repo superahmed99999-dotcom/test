@@ -10,7 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [language, setLanguage] = useState("en");
   const [theme, setTheme] = useState("light");
   const [notifications, setNotifications] = useState({
@@ -52,20 +52,20 @@ export default function Settings() {
     });
   };
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
-          <p className="text-slate-500 mt-2">Manage your account preferences and notifications</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
+            <p className="text-slate-500 mt-2">Manage your account preferences and notifications</p>
+          </div>
+          {authLoading && (
+            <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Syncing...
+            </div>
+          )}
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
