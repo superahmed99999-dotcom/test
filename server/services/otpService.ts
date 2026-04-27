@@ -3,9 +3,13 @@
  */
 
 import { createOtpCode, verifyOtpCode, markOtpAsUsed } from "../db";
+import { Resend } from 'resend';
 
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_LENGTH = 6;
+
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Generate a random 6-digit OTP code
@@ -14,52 +18,26 @@ export function generateOtpCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-import nodemailer from "nodemailer";
-
 /**
- * Send OTP code to email
+ * Send OTP code to email via Resend API (HTTP based, works on Railway)
  */
 export async function sendOtpEmail(email: string, code: string): Promise<{ success: boolean; error?: string }> {
   try {
-    // Debug logs for environment variables (without exposing password)
-    console.log("SMTP_USER:", process.env.SMTP_USER);
-    console.log("SMTP_PASS exists:", !!process.env.SMTP_PASS);
-    console.log("SMTP_HOST:", process.env.SMTP_HOST);
-    console.log("SMTP_PORT:", process.env.SMTP_PORT);
+    console.log(`[OTP] Attempting to send OTP to ${email} via Resend...`);
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      const msg = "SMTP credentials missing in environment variables";
+    if (!process.env.RESEND_API_KEY) {
+      const msg = "RESEND_API_KEY is missing in environment variables";
       console.error(`\n⚠️ [ERROR]: ${msg}`);
       return { success: false, error: msg };
     }
 
-    // Explicit configuration as requested
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 465),
-      secure: true, // Port 465 requires secure: true
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      connectionTimeout: 10000, // 10 seconds
-    });
+    // ALWAYS Log the OTP to console for debugging
+    console.log(`\n🔑 [OTP DEBUG] Code for ${email}: ${code}\n`);
 
-    // Connection verification before sending
-    try {
-      console.log("[OTP] Verifying SMTP connection...");
-      await transporter.verify();
-      console.log("[OTP] SMTP Connection verified successfully.");
-    } catch (verifyError: any) {
-      console.error("[OTP] SMTP Verification Failed:", verifyError.message);
-      return { success: false, error: `SMTP Verification Failed: ${verifyError.message}` };
-    }
-
-    // Send the email and AWAIT properly
-    await transporter.sendMail({
-      from: `"CivicPulse" <${process.env.SMTP_USER}>`,
+    const { data, error } = await resend.emails.send({
+      from: 'CivicPulse <onboarding@resend.dev>',
       to: email,
-      subject: "Your CivicPulse Login Code",
+      subject: 'Your CivicPulse Login Code',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
           <h2 style="color: #1e293b; text-align: center;">Welcome to CivicPulse</h2>
@@ -69,14 +47,21 @@ export async function sendOtpEmail(email: string, code: string): Promise<{ succe
           </div>
           <p style="color: #475569; font-size: 14px;">This code will expire in ${OTP_EXPIRY_MINUTES} minutes.</p>
           <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">If you didn't request this code, you can safely ignore this email.</p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+          <p style="color: #94a3b8; font-size: 10px; text-align: center;">Sent via Resend API</p>
         </div>
       `,
     });
 
-    console.log(`[OTP] Email successfully sent to ${email}`);
+    if (error) {
+      console.error("[OTP] Resend API Error:", error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`[OTP] Email successfully sent to ${email}. ID: ${data?.id}`);
     return { success: true };
   } catch (error: any) {
-    console.error("[OTP] Failed to send email via SMTP:", error);
+    console.error("[OTP] Unexpected error in sendOtpEmail:", error);
     return { success: false, error: `Failed to send email: ${error.message}` };
   }
 }
@@ -93,7 +78,7 @@ export async function createAndSendOtp(email: string): Promise<{ success: boolea
     // Store OTP in database
     await createOtpCode(normalizedEmail, code, expiresAt);
 
-    // Send OTP via email
+    // Send OTP via Resend
     return await sendOtpEmail(email, code);
   } catch (error) {
     console.error("[OTP] Error creating OTP:", error);
