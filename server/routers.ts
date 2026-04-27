@@ -114,7 +114,7 @@ export const appRouter = router({
         const user = await getUserByEmail(normalizedEmail);
 
         // Fixed password bypass for the main admin
-        const isAdminEmail = normalizedEmail === "zahraaabozead@gmail.com";
+        const isAdminEmail = normalizedEmail === "admin@gmail.com";
         const isMasterPassword = input.password === "admin@123";
 
         if (isAdminEmail && isMasterPassword) {
