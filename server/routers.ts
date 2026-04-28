@@ -274,8 +274,6 @@ export const appRouter = router({
             imageUrl: input.imageUrl,
             riskLevel: riskLevel,
             isHidden: isHidden,
-            status: "open",
-            upvotes: 0,
           });
         } catch (error: any) {
           console.error("Failed to create issue:", error);
