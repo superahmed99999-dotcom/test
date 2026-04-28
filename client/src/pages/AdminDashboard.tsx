@@ -403,15 +403,9 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
-<<<<<<< HEAD
-                Live Issue Feed (Recent)
+                {t("admin.recentIssues", "Live Issue Feed (Recent)")}
               </CardTitle>
-              <CardDescription>Latest reported civic issues with reporter details</CardDescription>
-=======
-                {t("admin.recentIssues")}
-              </CardTitle>
-              <CardDescription>{t("admin.recentDesc")}</CardDescription>
->>>>>>> 1c8ddad (feat: Implement 5 new features and full i18n translations)
+              <CardDescription>{t("admin.recentDesc", "Latest reported civic issues with reporter details")}</CardDescription>
             </CardHeader>
             <CardContent>
               {isIssuesLoading ? (
@@ -445,11 +439,7 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               ) : (
-<<<<<<< HEAD
-                <p className="text-center text-slate-400 py-8">No issues reported yet.</p>
-=======
-                <p className="text-center text-slate-400 py-8">{t("admin.noIssues")}</p>
->>>>>>> 1c8ddad (feat: Implement 5 new features and full i18n translations)
+                <p className="text-center text-slate-400 py-8">{t("admin.noIssues", "No issues reported yet.")}</p>
               )}
             </CardContent>
           </Card>
