@@ -38,6 +38,8 @@ export default function SignUp() {
       if (result.success) {
         toast.success("OTP sent to your email!");
         setStep("otp");
+      } else {
+        toast.error(result.error || "Failed to send OTP");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to send OTP");
