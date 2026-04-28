@@ -86,13 +86,49 @@ export default function SubmitIssue() {
 
     setIsUploading(true);
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setImageUrl(reader.result as string);
-      toast.success("Image processed successfully!");
-      setIsUploading(false);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Create canvas for resizing
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        // Max dimension 1200px
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Convert to quality-reduced JPEG Base64
+        const resizedBase64 = canvas.toDataURL("image/jpeg", 0.7);
+        setImageUrl(resizedBase64);
+        toast.success("Image processed and optimized!");
+        setIsUploading(false);
+      };
+      img.onerror = () => {
+        toast.error("Failed to process image");
+        setIsUploading(false);
+      };
+      img.src = event.target?.result as string;
     };
     reader.onerror = () => {
-      toast.error("Failed to process image");
+      toast.error("Failed to read image file");
       setIsUploading(false);
     };
     reader.readAsDataURL(file);
