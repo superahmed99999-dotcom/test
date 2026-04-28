@@ -6,12 +6,12 @@ const OTP_LENGTH = 6;
 
 // Nodemailer transporter setup using Gmail App Passwords
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || "465"),
-  secure: true, // true for 465, false for other ports
+  host: "smtp.gmail.com", // Hardcoded to prevent env variable typos/spaces
+  port: 465,
+  secure: true, // true for 465
   auth: {
-    user: process.env.SMTP_USER || "supermohamed55555@gmail.com",
-    pass: process.env.SMTP_PASS || "servschsrzyieoni",
+    user: (process.env.SMTP_USER || "supermohamed55555@gmail.com").trim(),
+    pass: (process.env.SMTP_PASS || "servschsrzyieoni").trim(),
   },
 });
 
