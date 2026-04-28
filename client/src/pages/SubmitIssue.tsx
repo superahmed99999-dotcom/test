@@ -95,9 +95,9 @@ export default function SubmitIssue() {
         let width = img.width;
         let height = img.height;
 
-        // Max dimension 800px to ensure it fits in standard TEXT columns if migrations haven't run
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 800;
+        // Ultra-conservative 640px to ensure it fits even in 64KB TEXT columns
+        const MAX_WIDTH = 640;
+        const MAX_HEIGHT = 640;
 
         if (width > height) {
           if (width > MAX_WIDTH) {
@@ -116,8 +116,8 @@ export default function SubmitIssue() {
         const ctx = canvas.getContext("2d");
         ctx?.drawImage(img, 0, 0, width, height);
 
-        // Convert to quality-reduced JPEG Base64 (0.6 quality for smaller size)
-        const resizedBase64 = canvas.toDataURL("image/jpeg", 0.6);
+        // Convert to quality-reduced JPEG Base64 (0.5 quality for maximum compatibility)
+        const resizedBase64 = canvas.toDataURL("image/jpeg", 0.5);
         setImageUrl(resizedBase64);
         toast.success("Image processed and optimized!");
         setIsUploading(false);
