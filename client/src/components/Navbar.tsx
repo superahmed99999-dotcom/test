@@ -11,10 +11,12 @@ import {
 import { MapPin, Plus, LayoutDashboard, LogOut, Settings, Shield } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Navbar() {
   const { user, isAuthenticated, logout, loading } = useAuth();
   const [location] = useLocation();
+  const { t } = useLanguage();
 
   const isActive = (path: string) => location === path;
 
@@ -50,7 +52,7 @@ export default function Navbar() {
                 className="gap-2"
               >
                 <MapPin className="h-4 w-4" />
-                Map
+                {t("nav.map")}
               </Button>
             </Link>
             <Link href="/submit">
@@ -59,7 +61,7 @@ export default function Navbar() {
                 className="gap-2"
               >
                 <Plus className="h-4 w-4" />
-                Report Issue
+                {t("nav.report")}
               </Button>
             </Link>
             {isAuthenticated && (
@@ -69,7 +71,7 @@ export default function Navbar() {
                   className="gap-2"
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
+                  {t("nav.dashboard")}
                 </Button>
               </Link>
             )}
@@ -79,7 +81,7 @@ export default function Navbar() {
                 className="gap-2"
               >
                 <Settings className="h-4 w-4" />
-                Settings
+                {t("nav.settings")}
               </Button>
             </Link>
           </div>
@@ -108,14 +110,14 @@ export default function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="cursor-pointer">
                       <Settings className="h-4 w-4 mr-2" />
-                      Settings
+                      {t("nav.settings")}
                     </Link>
                   </DropdownMenuItem>
                   {user.role === "admin" && (
                     <DropdownMenuItem asChild>
                       <Link href="/admin" className="cursor-pointer font-bold text-primary">
                         <Shield className="h-4 w-4 mr-2" />
-                        Admin Dashboard
+                        {t("nav.admin")}
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -126,17 +128,17 @@ export default function Navbar() {
                     className="text-red-600 cursor-pointer"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
-                    Logout
+                    {t("nav.logout")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <div className="flex items-center gap-2">
                 <Button asChild variant="outline">
-                  <Link href="/signup">Sign Up</Link>
+                  <Link href="/signup">{t("nav.signup")}</Link>
                 </Button>
                 <Button asChild>
-                  <a href={getLoginUrl()}>Login</a>
+                  <a href={getLoginUrl()}>{t("nav.login")}</a>
                 </Button>
               </div>
             )}

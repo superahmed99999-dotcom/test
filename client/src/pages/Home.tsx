@@ -5,10 +5,12 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
   const { data: issueCount = 0 } = trpc.issues.getCount.useQuery();
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -17,11 +19,11 @@ export default function Home() {
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div>
             <h1 className="text-5xl md:text-6xl font-bold text-slate-900 leading-tight mb-6">
-              Report. Track. Fix.
-              <span className="text-primary"> Civic Issues</span>
+              {t("home.title")}
+              <span className="text-primary"> {t("home.subtitle")}</span>
             </h1>
             <p className="text-xl text-slate-600 mb-8 leading-relaxed">
-              CivicPulse empowers citizens to report local infrastructure issues and track their resolution in real-time. Together, we build better communities.
+              {t("home.desc")}
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link href="/map">

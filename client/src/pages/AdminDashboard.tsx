@@ -2,64 +2,73 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Loader2, RefreshCw, Download } from "lucide-react";
-import { useLocation } from "wouter";
+import { AlertCircle, Users, AlertTriangle, Eye, EyeOff, BarChart3, TrendingUp, Shield, Loader2, CalendarDays, RefreshCw, Download, LogOut } from "lucide-react";
+import { useLocation, Link } from "wouter";
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import * as XLSX from "xlsx";
 import { format, subDays, subMonths, isAfter } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Shield, LogOut } from "lucide-react";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function AdminDashboard() {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const [, navigate] = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: issues, isLoading: isIssuesLoading, refetch } = trpc.admin.getAllIssues.useQuery(undefined, {
+  useEffect(() => {
+    if (!loading && (!user || user.role !== "admin")) {
+      navigate("/dashboard");
+    }
+  }, [user, loading, navigate]);
+
+  // Teammate's queries
+  const { data: stats, isLoading: statsLoading } = trpc.admin.getStats.useQuery(undefined, {
+    enabled: !!user && user.role === "admin",
+  });
+
+  const { data: hiddenIssues, isLoading: hiddenLoading } = trpc.admin.getHiddenIssues.useQuery({}, {
+    enabled: !!user && user.role === "admin",
+  });
+
+  const { data: allIssues } = trpc.issues.list.useQuery({}, {
+    enabled: !!user && user.role === "admin",
+  });
+
+  // My queries
+  const { data: issues, isLoading: isIssuesLoading, refetch } = trpc.issues.list.useQuery({ limit: 1000 }, {
     enabled: !!user && user.role === "admin"
   });
 
-  useEffect(() => {
-    if (!authLoading && (!user || user.role !== "admin")) {
-      navigate("/dashboard");
-    }
-  }, [user, authLoading, navigate]);
-
-  const stats = useMemo(() => {
-    if (!issues) return { total: 0, solved: 0, inProgress: 0, pending: 0 };
-    return {
-      total: issues.length,
-      solved: issues.filter(i => i.status === "resolved").length,
-      inProgress: issues.filter(i => i.status === "in-progress").length,
-      pending: issues.filter(i => i.status === "open").length,
-    };
-  }, [issues]);
-
+  // My computations
   const areaData = useMemo(() => {
     if (!issues) return [];
     const counts: Record<string, number> = {};
-    issues.forEach(i => {
-      // Use address as area, or a default
+    issues.forEach((i: any) => {
       const area = i.address ? i.address.split(',')[0].trim() : "Unknown";
       counts[area] = (counts[area] || 0) + 1;
     });
     return Object.entries(counts)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 5); // top 5 areas
+      .slice(0, 5);
   }, [issues]);
 
   const statusData = useMemo(() => {
+    if (!issues) return [];
+    const localStats = {
+      solved: issues.filter((i: any) => i.status === "resolved").length,
+      inProgress: issues.filter((i: any) => i.status === "in-progress").length,
+      pending: issues.filter((i: any) => i.status === "open").length,
+    };
     return [
-      { name: "Solved", value: stats.solved },
-      { name: "In Progress", value: stats.inProgress },
-      { name: "Pending", value: stats.pending },
+      { name: "Solved", value: localStats.solved },
+      { name: "In Progress", value: localStats.inProgress },
+      { name: "Pending", value: localStats.pending },
     ].filter(d => d.value > 0);
-  }, [stats]);
+  }, [issues]);
 
   const handleExport = (timeframe: "daily" | "monthly") => {
     if (!issues) return;
@@ -67,12 +76,12 @@ export default function AdminDashboard() {
     const now = new Date();
     const cutoffDate = timeframe === "daily" ? subDays(now, 1) : subMonths(now, 1);
 
-    const filteredIssues = issues.filter(i => {
+    const filteredIssues = issues.filter((i: any) => {
       const issueDate = new Date(i.createdAt);
       return isAfter(issueDate, cutoffDate);
     });
 
-    const exportData = filteredIssues.map(i => ({
+    const exportData = filteredIssues.map((i: any) => ({
       "User Name": i.userName || "Anonymous",
       "User Email": i.userEmail || "N/A",
       "Issue Category": i.category,
@@ -88,7 +97,7 @@ export default function AdminDashboard() {
     XLSX.writeFile(workbook, `civicpulse_report_${timeframe}_${format(now, "yyyyMMdd")}.xlsx`);
   };
 
-  if (authLoading || !user || user.role !== "admin") {
+  if (loading || !user || user.role !== "admin") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -96,9 +105,22 @@ export default function AdminDashboard() {
     );
   }
 
+  // Teammate's stat calculations
+  const totalIssues = stats?.totalIssues ?? 0;
+  const todayIssues = stats?.todayIssues ?? 0;
+  const totalUsers = stats?.totalUsers ?? 0;
+  const openCount = stats?.byStatus?.["open"] ?? 0;
+  const inProgressCount = stats?.byStatus?.["in-progress"] ?? 0;
+  const resolvedCount = stats?.byStatus?.["resolved"] ?? 0;
+  const resolvedRate = totalIssues > 0 ? Math.round((resolvedCount / totalIssues) * 100) : 0;
+  const criticalCount = stats?.byRisk?.["critical"] ?? 0;
+  const highCount = stats?.byRisk?.["high"] ?? 0;
+  const mediumCount = stats?.byRisk?.["medium"] ?? 0;
+  const lowCount = stats?.byRisk?.["low"] ?? 0;
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Admin Header */}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+      {/* My Admin Header */}
       <div className="bg-slate-900 text-white shadow-md">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -116,14 +138,21 @@ export default function AdminDashboard() {
       </div>
 
       <div className="container mx-auto py-8 px-4">
-        {/* Page Title & Actions */}
+        {/* Page Title & Actions (Merged) */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-1">Dashboard Overview</h1>
-            <p className="text-slate-500">Monitor community reports, system metrics, and generate exports.</p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">Dashboard Overview</h1>
+            <p className="text-slate-500 dark:text-slate-400">Monitor community reports, system metrics, and generate exports.</p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" className="bg-white" onClick={() => refetch()} disabled={isIssuesLoading}>
+          <div className="flex items-center gap-3">
+            {statsLoading && (
+              <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse mr-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading stats...
+              </div>
+            )}
+            
+            <Button variant="outline" className="bg-white dark:bg-slate-800" onClick={() => refetch()} disabled={isIssuesLoading}>
               {isIssuesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               {isIssuesLoading ? "Syncing..." : "Sync Data"}
             </Button>
@@ -161,47 +190,93 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Issues</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.total}</div>
+        {/* Teammate's Stats Grid - Row 1 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm font-medium">Total Issues</p>
+                  <p className="text-4xl font-bold mt-1">{totalIssues}</p>
+                </div>
+                <BarChart3 className="h-10 w-10 text-blue-200 opacity-80" />
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Solved Issues</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">{stats.solved}</div>
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 shadow-lg">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm font-medium">Today's Issues</p>
+                  <p className="text-4xl font-bold mt-1">{todayIssues}</p>
+                </div>
+                <CalendarDays className="h-10 w-10 text-green-200 opacity-80" />
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">In-Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{stats.inProgress}</div>
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-lg">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm font-medium">Total Users</p>
+                  <p className="text-4xl font-bold mt-1">{totalUsers}</p>
+                </div>
+                <Users className="h-10 w-10 text-purple-200 opacity-80" />
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Issues</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-orange-600">{stats.pending}</div>
+          <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0 shadow-lg">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-emerald-100 text-sm font-medium">Resolution Rate</p>
+                  <p className="text-4xl font-bold mt-1">{resolvedRate}%</p>
+                </div>
+                <TrendingUp className="h-10 w-10 text-emerald-200 opacity-80" />
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Charts */}
+        {/* Teammate's Stage Breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          <Card className="shadow-sm">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-3 w-3 rounded-full bg-blue-500" />
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Open</p>
+              </div>
+              <p className="text-3xl font-bold text-slate-900 dark:text-white">{openCount}</p>
+              <p className="text-xs text-slate-400 mt-1">{totalIssues > 0 ? Math.round((openCount / totalIssues) * 100) : 0}% of total</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-3 w-3 rounded-full bg-amber-500" />
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">In Progress</p>
+              </div>
+              <p className="text-3xl font-bold text-slate-900 dark:text-white">{inProgressCount}</p>
+              <p className="text-xs text-slate-400 mt-1">{totalIssues > 0 ? Math.round((inProgressCount / totalIssues) * 100) : 0}% of total</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Resolved</p>
+              </div>
+              <p className="text-3xl font-bold text-slate-900 dark:text-white">{resolvedCount}</p>
+              <p className="text-xs text-slate-400 mt-1">{totalIssues > 0 ? Math.round((resolvedCount / totalIssues) * 100) : 0}% of total</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* My Recharts Visualizations */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Card>
             <CardHeader>
               <CardTitle>Reports by Geographic Area</CardTitle>
@@ -256,48 +331,143 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Issue Feed Section */}
-        <Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Risk Level Breakdown */}
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                AI Risk Level Breakdown
+              </CardTitle>
+              <CardDescription>Issues categorized by AI-detected risk</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <span className="font-medium text-red-700 dark:text-red-300">Critical</span>
+                  <Badge variant="destructive">{criticalCount}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <span className="font-medium text-orange-700 dark:text-orange-300">High</span>
+                  <Badge className="bg-orange-500 hover:bg-orange-600">{highCount}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                  <span className="font-medium text-yellow-700 dark:text-yellow-300">Medium</span>
+                  <Badge className="bg-yellow-500 hover:bg-yellow-600">{mediumCount}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <span className="font-medium text-green-700 dark:text-green-300">Low</span>
+                  <Badge className="bg-green-500 hover:bg-green-600">{lowCount}</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Hidden Issues (Live) */}
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <EyeOff className="w-5 h-5" />
+                Hidden Issues
+              </CardTitle>
+              <CardDescription>Issues flagged and hidden from the public</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {hiddenLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+              ) : (hiddenIssues && hiddenIssues.length > 0) ? (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {hiddenIssues.map((issue: any) => (
+                    <div key={issue.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">{issue.title}</p>
+                        <p className="text-xs text-muted-foreground">{issue.category} - {issue.riskLevel}</p>
+                      </div>
+                      <Badge variant="outline">{issue.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-slate-400 py-8">No hidden issues</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* My Live Issue Feed combined with Recent Issues */}
+          <Card className="shadow-sm lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                Live Issue Feed (Recent)
+              </CardTitle>
+              <CardDescription>Latest reported civic issues with reporter details</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isIssuesLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+              ) : issues && issues.length > 0 ? (
+                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                  {issues.map((issue: any) => (
+                    <div key={issue.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-primary">{issue.userName || "Anonymous Reporter"}</span>
+                          <Badge variant="outline">{issue.category}</Badge>
+                          {issue.severity && (
+                            <Badge variant={issue.severity === "high" ? "destructive" : issue.severity === "medium" ? "default" : "secondary"}>
+                              {issue.severity}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="font-medium text-sm mb-1">{issue.title}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{issue.description}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2 min-w-[120px]">
+                        <Badge variant={issue.status === 'resolved' ? 'default' : issue.status === 'in-progress' ? 'secondary' : 'destructive'}>
+                          {issue.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(issue.createdAt), "MMM d, yyyy HH:mm")}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-slate-400 py-8">No issues reported yet.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Quick Actions (Teammate's feature) */}
+        <Card className="mt-6 shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5" />
-              Live Issue Feed
-            </CardTitle>
-            <CardDescription>Real-time feed of all reported community issues</CardDescription>
+            <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent>
-            {isIssuesLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : issues && issues.length > 0 ? (
-              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                {issues.map((issue) => (
-                  <div key={issue.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-primary">{issue.userName || "Anonymous Reporter"}</span>
-                        <Badge variant="outline">{issue.category}</Badge>
-                      </div>
-                      <p className="font-medium text-sm mb-1">{issue.title}</p>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{issue.description}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-2 min-w-[120px]">
-                      <Badge variant={issue.status === 'resolved' ? 'default' : issue.status === 'in-progress' ? 'secondary' : 'destructive'}>
-                        {issue.status}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(issue.createdAt), "MMM d, yyyy HH:mm")}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No issues reported yet.
-              </div>
-            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <Link href="/settings">
+                <Button variant="outline" className="w-full justify-start gap-2">
+                  ⚙️ Settings
+                </Button>
+              </Link>
+              <Link href="/map">
+                <Button variant="outline" className="w-full justify-start gap-2">
+                  🗺️ View Map
+                </Button>
+              </Link>
+              <Link href="/submit">
+                <Button variant="outline" className="w-full justify-start gap-2">
+                  📝 Submit Issue
+                </Button>
+              </Link>
+              <Link href="/dashboard">
+                <Button variant="outline" className="w-full justify-start gap-2">
+                  📊 User Dashboard
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
