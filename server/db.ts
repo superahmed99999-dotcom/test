@@ -133,7 +133,8 @@ export async function upsertUser(user: InsertUser): Promise<any> {
       updateSet.lastSignedIn = user.lastSignedIn;
     }
     const adminEmails = [
-      "hallamohamad1@gmail.com", // Only you are the admin now
+      "hallamohamad1@gmail.com",
+      "admincivicpulse123@gmail.com",
     ];
 
     if (user.role !== undefined) {

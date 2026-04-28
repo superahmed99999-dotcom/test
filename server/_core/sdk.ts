@@ -273,7 +273,26 @@ class SDKServer {
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
       if (sessionUserId.startsWith("local:")) {
-        throw ForbiddenError("Local user not found in database");
+        // Auto-create the hardcoded admin if they don't exist yet
+        const localEmail = sessionUserId.replace("local:", "");
+        if (localEmail === "admincivicpulse123@gmail.com") {
+          try {
+            await db.upsertUser({
+              openId: sessionUserId,
+              email: localEmail,
+              name: "Super Admin",
+              role: "admin",
+              loginMethod: "password",
+              lastSignedIn: signedInAt,
+            });
+            user = await db.getUserByOpenId(sessionUserId);
+          } catch (e) {
+            console.error("[Auth] Failed to auto-create admin user:", e);
+          }
+        }
+        if (!user) {
+          throw ForbiddenError("Local user not found in database");
+        }
       }
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
