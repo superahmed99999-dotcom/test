@@ -43,7 +43,7 @@ export const issues = mysqlTable("issues", {
   severity: mysqlEnum("severity", ["low", "medium", "high"]).default("medium").notNull(),
   riskLevel: mysqlEnum("riskLevel", ["low", "medium", "high", "critical"]).default("medium").notNull(),
   isHidden: int("isHidden").default(0).notNull(),
-  address: varchar("address", { length: 255 }).notNull(),
+  address: varchar("address", { length: 512 }).notNull(),
   latitude: varchar("latitude", { length: 64 }).notNull(),
   longitude: varchar("longitude", { length: 64 }).notNull(),
   imageUrl: longtext("imageUrl"),

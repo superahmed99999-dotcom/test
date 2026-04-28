@@ -205,7 +205,7 @@ export default function SubmitIssue() {
         description: description.trim(),
         category,
         severity,
-        address: address === "Loading..." ? "Location identified by coordinates" : (address.trim() || "Unknown Location"),
+        address: (address === "Loading..." ? "Location identified by coordinates" : (address.trim() || "Unknown Location")).substring(0, 500),
         latitude: selectedLocation.lat.toString(),
         longitude: selectedLocation.lng.toString(),
         imageUrl: imageUrl || undefined,

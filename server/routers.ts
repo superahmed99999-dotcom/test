@@ -230,7 +230,7 @@ export const appRouter = router({
         description: z.string().min(1),
         category: z.string().min(1).max(64),
         severity: z.enum(["low", "medium", "high"]),
-        address: z.string().min(1).max(255),
+        address: z.string().min(1).max(512),
         latitude: z.string().min(1).max(64),
         longitude: z.string().min(1).max(64),
         imageUrl: z.string().optional(),
