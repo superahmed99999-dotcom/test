@@ -81,7 +81,6 @@ export async function getDb() {
           console.log("[Database] Added 'password' column.");
         }
 
-        const [issuesColumns] = await _pool.query("SHOW COLUMNS FROM issues");
         const issueColNames = (issuesColumns as any[]).map(c => c.Field);
         if (!issueColNames.includes("riskLevel")) {
           await _pool.query("ALTER TABLE issues ADD COLUMN riskLevel ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium' NOT NULL");
