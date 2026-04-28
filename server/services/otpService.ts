@@ -1,13 +1,19 @@
 import { createOtpCode, verifyOtpCode, markOtpAsUsed } from "../db";
-import { Resend } from 'resend';
+import nodemailer from "nodemailer";
 
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_LENGTH = 6;
 
-// Initialize Resend
-// fallback to a dummy key if not set to prevent crashing during instantiation
-const resendApiKey = process.env.RESEND_API_KEY || 're_dummy_key';
-const resend = new Resend(resendApiKey);
+// Nodemailer transporter setup using Gmail App Passwords
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "465"),
+  secure: true, // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER || "supermohamed55555@gmail.com",
+    pass: process.env.SMTP_PASS || "servschsrzyieoni",
+  },
+});
 
 /**
  * Generate a random 6-digit OTP code
@@ -22,43 +28,34 @@ export function generateOtpCode(): string {
 export async function sendOtpEmail(email: string, code: string): Promise<{ success: boolean; error?: string }> {
   try {
     const normalizedEmail = email.trim().toLowerCase();
-    console.log(`[OTP] Attempting to send OTP to ${normalizedEmail} via Resend...`);
-
-    if (!process.env.RESEND_API_KEY) {
-      console.warn("\n⚠️ [WARNING]: RESEND_API_KEY is missing. OTP will only be logged to console.");
-    }
+    console.log(`[OTP] Attempting to send OTP to ${normalizedEmail} via Nodemailer (Gmail)...`);
 
     // ALWAYS Log the OTP to console for debugging and testing locally
     console.log(`\n🔑 [OTP DEBUG] Code for ${normalizedEmail}: ${code}\n`);
 
-    if (process.env.RESEND_API_KEY) {
-      const { data, error } = await resend.emails.send({
-        from: 'CivicPulse <onboarding@resend.dev>', // Free tier Resend sender
-        to: normalizedEmail,
-        subject: 'Your CivicPulse Login Code',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
-            <h2 style="color: #1e293b; text-align: center;">Welcome to CivicPulse</h2>
-            <p style="color: #475569; font-size: 16px;">Your One-Time Password (OTP) for login is:</p>
-            <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
-              <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a;">${code}</span>
-            </div>
-            <p style="color: #475569; font-size: 14px;">This code will expire in ${OTP_EXPIRY_MINUTES} minutes.</p>
-            <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">If you didn't request this code, you can safely ignore this email.</p>
+    const mailOptions = {
+      from: `"CivicPulse" <${process.env.SMTP_USER || "supermohamed55555@gmail.com"}>`,
+      to: normalizedEmail,
+      subject: 'Your CivicPulse Login Code',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+          <h2 style="color: #1e293b; text-align: center;">Welcome to CivicPulse</h2>
+          <p style="color: #475569; font-size: 16px;">Your One-Time Password (OTP) for login is:</p>
+          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a;">${code}</span>
           </div>
-        `,
-      });
+          <p style="color: #475569; font-size: 14px;">This code will expire in ${OTP_EXPIRY_MINUTES} minutes.</p>
+          <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">If you didn't request this code, you can safely ignore this email.</p>
+        </div>
+      `,
+    };
 
-      if (error) {
-        console.error("[OTP] Resend API Error:", error);
-        return { success: false, error: error.message };
-      }
-      console.log(`[OTP] Email successfully sent to ${normalizedEmail}. ID: ${data?.id}`);
-    }
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[OTP] Email successfully sent to ${normalizedEmail}. Message ID: ${info.messageId}`);
     
     return { success: true };
   } catch (error: any) {
-    console.error("[OTP] Unexpected error in sendOtpEmail:", error);
+    console.error("[OTP] Nodemailer API Error:", error);
     return { success: false, error: `Failed to send email: ${error.message}` };
   }
 }
