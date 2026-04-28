@@ -237,19 +237,30 @@ export const appRouter = router({
       }))
       .mutation(async ({ input, ctx }) => {
         try {
-          // AI Duplicate Detection
-          const recentIssues = await getIssues(20, 0); // Get recent 20 issues for comparison
-          const duplicateAnalysis = await detectDuplicateIssue(input.title, input.description, input.category, recentIssues);
-          
-          if (duplicateAnalysis.isDuplicate) {
-             throw new TRPCError({ 
-               code: "CONFLICT", 
-               message: `This issue appears to be a duplicate of an existing report (ID: ${duplicateAnalysis.duplicateOfId || 'unknown'}). AI Reasoning: ${duplicateAnalysis.reasoning}` 
-             });
-          }
+          // AI Duplicate Detection with Graceful Fallback
+          let riskLevel: "low" | "medium" | "high" | "critical" = "medium";
+          let isHidden = 0;
 
-          const riskAnalysis = await analyzeIssueRisk(input.title, input.description, input.category, input.severity);
-          const isCritical = await shouldMarkAsCritical(input.title, input.description, input.category, riskAnalysis.riskLevel);
+          try {
+            const recentIssues = await getIssues(20, 0); // Get recent 20 issues for comparison
+            const duplicateAnalysis = await detectDuplicateIssue(input.title, input.description, input.category, recentIssues);
+            
+            if (duplicateAnalysis.isDuplicate) {
+              throw new TRPCError({ 
+                code: "CONFLICT", 
+                message: `This issue appears to be a duplicate of an existing report (ID: ${duplicateAnalysis.duplicateOfId || 'unknown'}). AI Reasoning: ${duplicateAnalysis.reasoning}` 
+              });
+            }
+
+            const riskAnalysis = await analyzeIssueRisk(input.title, input.description, input.category, input.severity);
+            riskLevel = riskAnalysis.riskLevel;
+            const isCritical = await shouldMarkAsCritical(input.title, input.description, input.category, riskLevel);
+            isHidden = isCritical ? 1 : 0;
+          } catch (aiError: any) {
+            console.error("[AI] Analysis failed, proceeding with defaults:", aiError);
+            if (aiError instanceof TRPCError) throw aiError;
+            // Otherwise, keep default riskLevel and isHidden
+          }
 
           return await createIssue({
             userId: ctx.user.id,
@@ -261,8 +272,8 @@ export const appRouter = router({
             latitude: input.latitude,
             longitude: input.longitude,
             imageUrl: input.imageUrl,
-            riskLevel: riskAnalysis.riskLevel,
-            isHidden: isCritical ? 1 : 0,
+            riskLevel: riskLevel,
+            isHidden: isHidden,
             status: "open",
             upvotes: 0,
           });

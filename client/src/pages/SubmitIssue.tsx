@@ -94,9 +94,9 @@ export default function SubmitIssue() {
         let width = img.width;
         let height = img.height;
 
-        // Max dimension 1200px
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
+        // Max dimension 800px to ensure it fits in standard TEXT columns if migrations haven't run
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
 
         if (width > height) {
           if (width > MAX_WIDTH) {
@@ -115,8 +115,8 @@ export default function SubmitIssue() {
         const ctx = canvas.getContext("2d");
         ctx?.drawImage(img, 0, 0, width, height);
 
-        // Convert to quality-reduced JPEG Base64
-        const resizedBase64 = canvas.toDataURL("image/jpeg", 0.7);
+        // Convert to quality-reduced JPEG Base64 (0.6 quality for smaller size)
+        const resizedBase64 = canvas.toDataURL("image/jpeg", 0.6);
         setImageUrl(resizedBase64);
         toast.success("Image processed and optimized!");
         setIsUploading(false);
@@ -205,7 +205,7 @@ export default function SubmitIssue() {
         description: description.trim(),
         category,
         severity,
-        address: address.trim() || "Unknown Location",
+        address: address === "Loading..." ? "Location identified by coordinates" : (address.trim() || "Unknown Location"),
         latitude: selectedLocation.lat.toString(),
         longitude: selectedLocation.lng.toString(),
         imageUrl: imageUrl || undefined,
