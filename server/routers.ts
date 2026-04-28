@@ -432,21 +432,29 @@ export const appRouter = router({
     reverseGeocode: publicProcedure
       .input(z.object({ lat: z.number(), lng: z.number() }))
       .query(async ({ input }) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${input.lat}&lon=${input.lng}&zoom=18&addressdetails=1`,
             {
               headers: {
-                "User-Agent": "CivicPulse/1.0 (hallamohamad1@gmail.com)",
+                "User-Agent": "CivicPulse/1.1 (Contact: hallamohamad1@gmail.com; Web: civicpulse.app)",
+                "Accept-Language": "en,ar",
               },
+              signal: controller.signal,
             }
           );
-          if (!response.ok) throw new Error("Geocoding service unavailable");
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) throw new Error(`Geocoding service returned ${response.status}`);
           const data = await response.json();
           return { address: data.display_name || "Unknown Location" };
-        } catch (error) {
-          console.error("[Geocoding Error]", error);
-          return { address: "Unknown Location" };
+        } catch (error: any) {
+          clearTimeout(timeoutId);
+          console.error("[Geocoding Error]", error.name === 'AbortError' ? 'Timeout' : error.message);
+          return { address: "Location identified by coordinates (Service busy)" };
         }
       }),
   }),
