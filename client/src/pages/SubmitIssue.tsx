@@ -59,6 +59,7 @@ export default function SubmitIssue() {
     // Trigger AI assessment with a slight debounce-like behavior
     assessRisk(text);
   };
+  const utils = trpc.useUtils();
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   const [imageUrl, setImageUrl] = useState("");
@@ -136,10 +137,10 @@ export default function SubmitIssue() {
 
   const reverseGeocode = async (lat: number, lng: number) => {
     setIsGeocoding(true);
+    setAddress("Loading...");
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-      const data = await response.json();
-      setAddress(data.display_name || "Unknown Location");
+      const data = await utils.client.maps.reverseGeocode.query({ lat, lng });
+      setAddress(data.address);
     } catch (error) {
       console.error("Geocoding error:", error);
       setAddress("Unknown Location");

@@ -422,6 +422,28 @@ export const appRouter = router({
       .input(z.object({ title: z.string(), description: z.string(), category: z.string(), severity: z.string() }))
       .mutation(async ({ input }) => await analyzeIssueRisk(input.title, input.description, input.category, input.severity)),
   }),
+  maps: router({
+    reverseGeocode: publicProcedure
+      .input(z.object({ lat: z.number(), lng: z.number() }))
+      .query(async ({ input }) => {
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${input.lat}&lon=${input.lng}&zoom=18&addressdetails=1`,
+            {
+              headers: {
+                "User-Agent": "CivicPulse/1.0 (hallamohamad1@gmail.com)",
+              },
+            }
+          );
+          if (!response.ok) throw new Error("Geocoding service unavailable");
+          const data = await response.json();
+          return { address: data.display_name || "Unknown Location" };
+        } catch (error) {
+          console.error("[Geocoding Error]", error);
+          return { address: "Unknown Location" };
+        }
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
