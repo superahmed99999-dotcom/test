@@ -296,13 +296,22 @@ export async function getIssueCount() {
 export async function createIssue(data: InsertIssue) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  
   try {
+    // Check if user exists to avoid foreign key violation
+    const user = await db.select().from(users).where(eq(users.id, data.userId)).limit(1);
+    if (user.length === 0) {
+      throw new Error(`User with ID ${data.userId} not found in database. Please try logging out and in again.`);
+    }
+
     const result = await db.insert(issues).values(data);
     const insertedId = result[0].insertId;
     return await getIssueById(Number(insertedId));
-  } catch (error) {
+  } catch (error: any) {
     console.error("[Database] Failed to create issue:", error);
-    throw error;
+    // Extract a more useful message from the MySQL error if available
+    const mysqlError = error.sqlMessage || error.message || "Unknown database error";
+    throw new Error(`Database Error: ${mysqlError}`);
   }
 }
 
