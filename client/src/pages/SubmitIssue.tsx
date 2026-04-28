@@ -85,26 +85,17 @@ export default function SubmitIssue() {
     }
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append("image", file);
-
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error("Upload failed");
-
-      const data = await response.json();
-      setImageUrl(data.url);
-      toast.success("Image uploaded successfully!");
-    } catch (error) {
-      console.error("Upload error:", error);
-      toast.error("Failed to upload image");
-    } finally {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImageUrl(reader.result as string);
+      toast.success("Image processed successfully!");
       setIsUploading(false);
-    }
+    };
+    reader.onerror = () => {
+      toast.error("Failed to process image");
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const reverseGeocode = async (lat: number, lng: number) => {
