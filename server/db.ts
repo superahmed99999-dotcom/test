@@ -1,7 +1,7 @@
 import { eq, sql, and, lt } from "drizzle-orm";
 import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, issues, InsertIssue, issueImages, userVotes } from "../drizzle/schema";
+import { InsertUser, users, issues, InsertIssue, issueImages, userVotes, otpCodes } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -105,6 +105,20 @@ export async function getDb() {
           await _pool.query("ALTER TABLE issues ADD COLUMN upvotes INT DEFAULT 0 NOT NULL");
           console.log("[Database] Added 'upvotes' column to issues.");
         }
+
+        // Create otp_codes table if it doesn't exist
+        await _pool.query(`
+          CREATE TABLE IF NOT EXISTS otp_codes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(320) NOT NULL,
+            code VARCHAR(6) NOT NULL,
+            expiresAt TIMESTAMP NOT NULL,
+            isUsed INT DEFAULT 0 NOT NULL,
+            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+          )
+        `);
+        console.log("[Database] Ensured 'otp_codes' table exists.");
+
       } catch (migrateError) {
         console.error("[Database] Auto-migration check failed:", migrateError);
       }
@@ -468,5 +482,99 @@ export async function getHiddenIssues(limit: number = 50, offset: number = 0) {
   } catch (error) {
     console.error("[Database] Failed to get hidden issues:", error);
     return [];
+  }
+}
+
+// OTP query helpers
+
+export async function deleteOldOtps(email: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  try {
+    await db.delete(otpCodes).where(eq(otpCodes.email, email));
+  } catch (error) {
+    console.error("[Database] Failed to delete old OTPs:", error);
+  }
+}
+
+export async function createOtpCode(email: string, code: string, expiresAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  try {
+    // 1. Delete any existing OTPs for this email first (as per the user's smart suggestion)
+    await deleteOldOtps(email);
+
+    // 2. Insert the new OTP
+    const result = await db.insert(otpCodes).values({ email, code, expiresAt });
+    return result;
+  } catch (error) {
+    console.error("[Database] Failed to create OTP code:", error);
+    throw error;
+  }
+}
+
+export async function verifyOtpCode(email: string, code: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot verify OTP: database not available");
+    return false;
+  }
+
+  try {
+    // Debug logging
+    console.log(`[DB] Verifying OTP for: ${email}, Code: ${code}`);
+
+    const result = await db
+      .select()
+      .from(otpCodes)
+      .where(and(eq(otpCodes.email, email), eq(otpCodes.code, code)))
+      .limit(1);
+    
+    if (result.length === 0) {
+      console.log(`[OTP VERIFY] No record found for ${email} with code ${code}`);
+      return false;
+    }
+    
+    const otpRecord = result[0];
+    
+    if (otpRecord.isUsed) {
+      console.log(`[OTP VERIFY] Code ${code} for ${email} has already been used.`);
+      return false;
+    }
+
+    // Robust expiration check
+    const expiryTime = new Date(otpRecord.expiresAt).getTime();
+    const currentTime = Date.now();
+    
+    // Debug logging
+    console.log(`[DB OTP] Expiry: ${new Date(expiryTime).toISOString()}`);
+    console.log(`[DB OTP] Now: ${new Date(currentTime).toISOString()}`);
+    
+    // Give a 1-minute buffer for safety
+    if (currentTime > (expiryTime + 60000)) {
+      console.log(`[OTP VERIFY] Expired. Current: ${new Date(currentTime).toISOString()}, Expiry: ${new Date(expiryTime).toISOString()}`);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("[Database] Failed to verify OTP:", error);
+    return false;
+  }
+}
+
+export async function markOtpAsUsed(email: string, code: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  try {
+    await db
+      .update(otpCodes)
+      .set({ isUsed: 1 })
+      .where(and(eq(otpCodes.email, email), eq(otpCodes.code, code)));
+  } catch (error) {
+    console.error("[Database] Failed to mark OTP as used:", error);
+    throw error;
   }
 }
