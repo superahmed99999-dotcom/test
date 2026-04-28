@@ -36,6 +36,7 @@ import {
 } from "./services/aiRiskService";
 import { sdk } from "./_core/sdk";
 import { ONE_YEAR_MS } from "@shared/const";
+import { createAndSendOtp, verifyOtp } from "./services/otpService";
 
 // Admin procedure - requires admin role
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -109,6 +110,27 @@ export const appRouter = router({
         });
 
         return { success: true, user };
+      }),
+
+    sendOtp: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .mutation(async ({ input }) => {
+        const normalizedEmail = input.email.trim().toLowerCase();
+        return await createAndSendOtp(normalizedEmail);
+      }),
+
+    verifyOtp: publicProcedure
+      .input(z.object({ email: z.string().email(), code: z.string().length(6) }))
+      .mutation(async ({ input }) => {
+        const normalizedEmail = input.email.trim().toLowerCase();
+        const result = await verifyOtp(normalizedEmail, input.code);
+        if (!result.success) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: result.error || "Invalid OTP",
+          });
+        }
+        return { success: true };
       }),
 
     login: publicProcedure
