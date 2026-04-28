@@ -36,7 +36,14 @@ export default function SignUp() {
     try {
       const result = await sendOtpMutation.mutateAsync({ email: email.trim().toLowerCase() });
       if (result.success) {
-        toast.success("OTP sent to your email!");
+        toast.success("Account validation started!");
+        if (result.demoOtp) {
+          // Show the OTP directly in the UI for the demo
+          toast.info(`🔔 Demo Mode OTP: ${result.demoOtp}`, {
+            duration: 10000,
+            style: { fontSize: '18px', fontWeight: 'bold' }
+          });
+        }
         setStep("otp");
       } else {
         toast.error(result.error || "Failed to send OTP");

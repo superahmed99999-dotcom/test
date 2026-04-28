@@ -25,45 +25,28 @@ export function generateOtpCode(): string {
 /**
  * Send OTP code to email via Resend API
  */
-export async function sendOtpEmail(email: string, code: string): Promise<{ success: boolean; error?: string }> {
+export async function sendOtpEmail(email: string, code: string): Promise<{ success: boolean; error?: string; demoOtp?: string }> {
   try {
     const normalizedEmail = email.trim().toLowerCase();
-    console.log(`[OTP] Attempting to send OTP to ${normalizedEmail} via Nodemailer (Gmail)...`);
+    console.log(`[OTP] Demo Mode: OTP for ${normalizedEmail} generated successfully.`);
 
     // ALWAYS Log the OTP to console for debugging and testing locally
     console.log(`\n🔑 [OTP DEBUG] Code for ${normalizedEmail}: ${code}\n`);
 
-    const mailOptions = {
-      from: `"CivicPulse" <${process.env.SMTP_USER || "supermohamed55555@gmail.com"}>`,
-      to: normalizedEmail,
-      subject: 'Your CivicPulse Login Code',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
-          <h2 style="color: #1e293b; text-align: center;">Welcome to CivicPulse</h2>
-          <p style="color: #475569; font-size: 16px;">Your One-Time Password (OTP) for login is:</p>
-          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
-            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a;">${code}</span>
-          </div>
-          <p style="color: #475569; font-size: 14px;">This code will expire in ${OTP_EXPIRY_MINUTES} minutes.</p>
-          <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">If you didn't request this code, you can safely ignore this email.</p>
-        </div>
-      `,
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`[OTP] Email successfully sent to ${normalizedEmail}. Message ID: ${info.messageId}`);
+    // We skip actually sending the email to avoid Railway's SMTP block (timeout).
+    // Instead, we will return the code directly to the frontend to show it as a notification!
     
-    return { success: true };
+    return { success: true, demoOtp: code };
   } catch (error: any) {
-    console.error("[OTP] Nodemailer API Error:", error);
-    return { success: false, error: `Failed to send email: ${error.message}` };
+    console.error("[OTP] Error:", error);
+    return { success: false, error: `Failed to process OTP: ${error.message}` };
   }
 }
 
 /**
  * Create and send OTP for email
  */
-export async function createAndSendOtp(email: string): Promise<{ success: boolean; error?: string }> {
+export async function createAndSendOtp(email: string): Promise<{ success: boolean; error?: string; demoOtp?: string }> {
   const normalizedEmail = email.trim().toLowerCase();
   try {
     const code = generateOtpCode();
@@ -72,8 +55,9 @@ export async function createAndSendOtp(email: string): Promise<{ success: boolea
     // Store OTP in database (this handles deleting old ones automatically now)
     await createOtpCode(normalizedEmail, code, expiresAt);
 
-    // Send OTP via Resend
-    return await sendOtpEmail(normalizedEmail, code);
+    // Get the result and ensure we return the demoOtp
+    const result = await sendOtpEmail(normalizedEmail, code);
+    return { ...result, demoOtp: code };
   } catch (error) {
     console.error("[OTP] Error creating OTP:", error);
     return { success: false, error: "Failed to create OTP" };
