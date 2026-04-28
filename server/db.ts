@@ -59,6 +59,13 @@ export async function getDb() {
           await _pool.query("ALTER TABLE issues MODIFY COLUMN address VARCHAR(512) NOT NULL");
         }
 
+        // Update imageUrl to LONGTEXT
+        const imageUrlCol = issuesColDetails.find(c => c.Field === 'imageUrl');
+        if (imageUrlCol && !imageUrlCol.Type.includes('longtext')) {
+          console.log("[Database] Updating issues.imageUrl to LONGTEXT...");
+          await _pool.query("ALTER TABLE issues MODIFY COLUMN imageUrl LONGTEXT");
+        }
+
         const [usersColumns] = await _pool.query("SHOW COLUMNS FROM users");
         const userColNames = (usersColumns as any[]).map(c => c.Field);
         
@@ -93,6 +100,10 @@ export async function getDb() {
         if (!issueColNames.includes("resolutionRating")) {
           await _pool.query("ALTER TABLE issues ADD COLUMN resolutionRating INT DEFAULT NULL");
           console.log("[Database] Added 'resolutionRating' column to issues.");
+        }
+        if (!issueColNames.includes("upvotes")) {
+          await _pool.query("ALTER TABLE issues ADD COLUMN upvotes INT DEFAULT 0 NOT NULL");
+          console.log("[Database] Added 'upvotes' column to issues.");
         }
       } catch (migrateError) {
         console.error("[Database] Auto-migration check failed:", migrateError);
