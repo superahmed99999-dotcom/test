@@ -12,27 +12,22 @@ export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
       const dbUrl = process.env.DATABASE_URL.trim();
-      const url = new URL(dbUrl);
       
-      const config: mysql.PoolOptions = {
-        host: url.hostname,
-        user: url.username,
-        password: url.password,
-        database: url.pathname.substring(1).split('?')[0] || undefined,
-        port: parseInt(url.port) || 3306,
-        ssl: (dbUrl.includes("tidbcloud.com") || dbUrl.includes("ssl")) ? {
-          rejectUnauthorized: true
-        } : undefined,
+      // Use mysql.createPool directly with the connection string if possible, 
+      // or provide a more robust parsing logic.
+      _pool = mysql.createPool({
+        uri: dbUrl,
         waitForConnections: true,
         connectionLimit: 10,
         maxIdle: 10,
         idleTimeout: 60000,
         queueLimit: 0,
         enableKeepAlive: true,
-        keepAliveInitialDelay: 0
-      };
-
-      _pool = mysql.createPool(config);
+        keepAliveInitialDelay: 0,
+        ssl: (dbUrl.includes("tidbcloud.com") || dbUrl.includes("ssl")) ? {
+          rejectUnauthorized: true
+        } : undefined,
+      });
       
       // Handle pool errors to prevent app crashes
       (_pool as any).on('error', (err: any) => {
@@ -49,11 +44,21 @@ export async function getDb() {
         new Promise((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 5000))
       ]);
       
-      console.log(`[Database] Connected to ${url.hostname} successfully.`);
+      console.log(`[Database] Connected to MySQL successfully.`);
 
-      // AUTO-MIGRATION CHECK: Add missing columns if they don't exist
+      // AUTO-MIGRATION CHECK: Add missing columns or update lengths if they don't exist
       try {
         console.log("[Database] Running auto-migration check...");
+        const [issuesColumns] = await _pool.query("SHOW COLUMNS FROM issues");
+        const issuesColDetails = (issuesColumns as any[]);
+        
+        // Update address length to 512
+        const addressCol = issuesColDetails.find(c => c.Field === 'address');
+        if (addressCol && addressCol.Type.includes('varchar(255)')) {
+          console.log("[Database] Updating issues.address length to 512...");
+          await _pool.query("ALTER TABLE issues MODIFY COLUMN address VARCHAR(512) NOT NULL");
+        }
+
         const [usersColumns] = await _pool.query("SHOW COLUMNS FROM users");
         const userColNames = (usersColumns as any[]).map(c => c.Field);
         
