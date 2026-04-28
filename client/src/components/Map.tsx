@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
 import type { Issue } from "@shared/types";
+import "leaflet.heat";
 
 // Fix for default marker icons in Leaflet with Webpack/Vite
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -109,6 +110,57 @@ function MapEvents({ onLocationSelect, onMapReady, onLocationFound }: MapEventsP
   return null;
 }
 
+function HeatmapLayer({ issues, isVisible }: { issues: Issue[], isVisible: boolean }) {
+  const map = useMap();
+  const heatLayerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!isVisible) {
+      if (heatLayerRef.current) {
+        map.removeLayer(heatLayerRef.current);
+        heatLayerRef.current = null;
+      }
+      return;
+    }
+
+    // Collect data points
+    const points = issues.map(issue => [
+      parseFloat(issue.latitude),
+      parseFloat(issue.longitude),
+      1 // intensity
+    ]);
+
+    if (points.length > 0) {
+      if (heatLayerRef.current) {
+        map.removeLayer(heatLayerRef.current);
+      }
+      
+      // @ts-ignore - leaflet.heat adds L.heatLayer
+      heatLayerRef.current = L.heatLayer(points, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 15,
+        max: 1.0,
+        gradient: {
+          0.4: 'blue',
+          0.6: 'cyan',
+          0.7: 'lime',
+          0.8: 'yellow',
+          1.0: 'red'
+        }
+      }).addTo(map);
+    }
+
+    return () => {
+      if (heatLayerRef.current) {
+        map.removeLayer(heatLayerRef.current);
+      }
+    };
+  }, [map, issues, isVisible]);
+
+  return null;
+}
+
 // Component to update map center/zoom when props change
 function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
@@ -136,6 +188,7 @@ interface MapViewProps {
   issues?: Issue[];
   selectedLocation?: { lat: number; lng: number } | null;
   onIssueClick?: (issue: Issue) => void;
+  showHeatmap?: boolean;
 }
 
 export function MapView({
@@ -148,6 +201,7 @@ export function MapView({
   issues = [],
   selectedLocation,
   onIssueClick,
+  showHeatmap = false,
 }: MapViewProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -232,6 +286,9 @@ export function MapView({
             </Popup>
           </Marker>
         ))}
+
+        {/* Heatmap Overlay */}
+        <HeatmapLayer issues={issues} isVisible={showHeatmap} />
 
         {/* Render marker for selected location (Submit Issue) */}
         {selectedLocation && (

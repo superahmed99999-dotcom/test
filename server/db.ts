@@ -86,6 +86,10 @@ export async function getDb() {
           await _pool.query("ALTER TABLE issues ADD COLUMN isHidden INT DEFAULT 0 NOT NULL");
           console.log("[Database] Added 'isHidden' column to issues.");
         }
+        if (!issueColNames.includes("resolutionRating")) {
+          await _pool.query("ALTER TABLE issues ADD COLUMN resolutionRating INT DEFAULT NULL");
+          console.log("[Database] Added 'resolutionRating' column to issues.");
+        }
       } catch (migrateError) {
         console.error("[Database] Auto-migration check failed:", migrateError);
       }
@@ -295,6 +299,18 @@ export async function updateIssue(id: number, data: Partial<InsertIssue>) {
     return await getIssueById(id);
   } catch (error) {
     console.error("[Database] Failed to update issue:", error);
+    throw error;
+  }
+}
+
+export async function rateIssueResolution(id: number, rating: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  try {
+    await db.update(issues).set({ resolutionRating: rating }).where(eq(issues.id, id));
+    return await getIssueById(id);
+  } catch (error) {
+    console.error("[Database] Failed to rate issue:", error);
     throw error;
   }
 }

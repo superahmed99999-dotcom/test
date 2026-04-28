@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import * as XLSX from "xlsx";
 import { format, subDays, subMonths, isAfter } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -17,6 +18,7 @@ export default function AdminDashboard() {
   const { user, loading, logout } = useAuth();
   const [, navigate] = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "admin")) {
@@ -141,14 +143,17 @@ export default function AdminDashboard() {
         {/* Page Title & Actions (Merged) */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">Dashboard Overview</h1>
-            <p className="text-slate-500 dark:text-slate-400">Monitor community reports, system metrics, and generate exports.</p>
+            <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
+              <Shield className="inline h-8 w-8 mr-2 text-primary" />
+              {t("admin.title", "Dashboard Overview")}
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400">{t("admin.desc", "Monitor community reports, system metrics, and generate exports.")}</p>
           </div>
           <div className="flex items-center gap-3">
             {statsLoading && (
               <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse mr-4">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading stats...
+                {t("general.loading", "Loading stats...")}
               </div>
             )}
             
@@ -196,7 +201,7 @@ export default function AdminDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm font-medium">Total Issues</p>
+                  <p className="text-blue-100 text-sm font-medium">{t("admin.totalIssues")}</p>
                   <p className="text-4xl font-bold mt-1">{totalIssues}</p>
                 </div>
                 <BarChart3 className="h-10 w-10 text-blue-200 opacity-80" />
@@ -208,7 +213,7 @@ export default function AdminDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-100 text-sm font-medium">Today's Issues</p>
+                  <p className="text-green-100 text-sm font-medium">{t("admin.todayIssues")}</p>
                   <p className="text-4xl font-bold mt-1">{todayIssues}</p>
                 </div>
                 <CalendarDays className="h-10 w-10 text-green-200 opacity-80" />
@@ -220,7 +225,7 @@ export default function AdminDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-purple-100 text-sm font-medium">Total Users</p>
+                  <p className="text-purple-100 text-sm font-medium">{t("admin.totalUsers")}</p>
                   <p className="text-4xl font-bold mt-1">{totalUsers}</p>
                 </div>
                 <Users className="h-10 w-10 text-purple-200 opacity-80" />
@@ -232,7 +237,7 @@ export default function AdminDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-emerald-100 text-sm font-medium">Resolution Rate</p>
+                  <p className="text-emerald-100 text-sm font-medium">{t("admin.resolutionRate")}</p>
                   <p className="text-4xl font-bold mt-1">{resolvedRate}%</p>
                 </div>
                 <TrendingUp className="h-10 w-10 text-emerald-200 opacity-80" />
@@ -247,30 +252,30 @@ export default function AdminDashboard() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="h-3 w-3 rounded-full bg-blue-500" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Open</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("admin.open")}</p>
               </div>
               <p className="text-3xl font-bold text-slate-900 dark:text-white">{openCount}</p>
-              <p className="text-xs text-slate-400 mt-1">{totalIssues > 0 ? Math.round((openCount / totalIssues) * 100) : 0}% of total</p>
+              <p className="text-xs text-slate-400 mt-1">{totalIssues > 0 ? Math.round((openCount / totalIssues) * 100) : 0}% {t("general.ofTotal")}</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="h-3 w-3 rounded-full bg-amber-500" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">In Progress</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("admin.inProgress")}</p>
               </div>
               <p className="text-3xl font-bold text-slate-900 dark:text-white">{inProgressCount}</p>
-              <p className="text-xs text-slate-400 mt-1">{totalIssues > 0 ? Math.round((inProgressCount / totalIssues) * 100) : 0}% of total</p>
+              <p className="text-xs text-slate-400 mt-1">{totalIssues > 0 ? Math.round((inProgressCount / totalIssues) * 100) : 0}% {t("general.ofTotal")}</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Resolved</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("admin.resolved")}</p>
               </div>
               <p className="text-3xl font-bold text-slate-900 dark:text-white">{resolvedCount}</p>
-              <p className="text-xs text-slate-400 mt-1">{totalIssues > 0 ? Math.round((resolvedCount / totalIssues) * 100) : 0}% of total</p>
+              <p className="text-xs text-slate-400 mt-1">{totalIssues > 0 ? Math.round((resolvedCount / totalIssues) * 100) : 0}% {t("general.ofTotal")}</p>
             </CardContent>
           </Card>
         </div>
@@ -337,9 +342,9 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-red-500" />
-                AI Risk Level Breakdown
+                {t("admin.riskBreakdown")}
               </CardTitle>
-              <CardDescription>Issues categorized by AI-detected risk</CardDescription>
+              <CardDescription>{t("admin.riskDesc")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -368,9 +373,9 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <EyeOff className="w-5 h-5" />
-                Hidden Issues
+                {t("admin.hiddenIssues")}
               </CardTitle>
-              <CardDescription>Issues flagged and hidden from the public</CardDescription>
+              <CardDescription>{t("admin.hiddenDesc")}</CardDescription>
             </CardHeader>
             <CardContent>
               {hiddenLoading ? (
@@ -388,7 +393,7 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-slate-400 py-8">No hidden issues</p>
+                <p className="text-center text-slate-400 py-8">{t("admin.noHidden")}</p>
               )}
             </CardContent>
           </Card>
@@ -398,9 +403,15 @@ export default function AdminDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
+<<<<<<< HEAD
                 Live Issue Feed (Recent)
               </CardTitle>
               <CardDescription>Latest reported civic issues with reporter details</CardDescription>
+=======
+                {t("admin.recentIssues")}
+              </CardTitle>
+              <CardDescription>{t("admin.recentDesc")}</CardDescription>
+>>>>>>> 1c8ddad (feat: Implement 5 new features and full i18n translations)
             </CardHeader>
             <CardContent>
               {isIssuesLoading ? (
@@ -434,7 +445,11 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               ) : (
+<<<<<<< HEAD
                 <p className="text-center text-slate-400 py-8">No issues reported yet.</p>
+=======
+                <p className="text-center text-slate-400 py-8">{t("admin.noIssues")}</p>
+>>>>>>> 1c8ddad (feat: Implement 5 new features and full i18n translations)
               )}
             </CardContent>
           </Card>
@@ -443,28 +458,28 @@ export default function AdminDashboard() {
         {/* Quick Actions (Teammate's feature) */}
         <Card className="mt-6 shadow-sm">
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle>{t("admin.quickActions")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Link href="/settings">
                 <Button variant="outline" className="w-full justify-start gap-2">
-                  ⚙️ Settings
+                  ⚙️ {t("nav.settings")}
                 </Button>
               </Link>
               <Link href="/map">
                 <Button variant="outline" className="w-full justify-start gap-2">
-                  🗺️ View Map
+                  🗺️ {t("nav.map")}
                 </Button>
               </Link>
               <Link href="/submit">
                 <Button variant="outline" className="w-full justify-start gap-2">
-                  📝 Submit Issue
+                  📝 {t("nav.report")}
                 </Button>
               </Link>
               <Link href="/dashboard">
                 <Button variant="outline" className="w-full justify-start gap-2">
-                  📊 User Dashboard
+                  📊 {t("admin.userDash")}
                 </Button>
               </Link>
             </div>

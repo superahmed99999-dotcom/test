@@ -48,6 +48,7 @@ export const issues = mysqlTable("issues", {
   longitude: varchar("longitude", { length: 64 }).notNull(),
   imageUrl: text("imageUrl"),
   upvotes: int("upvotes").default(0).notNull(),
+  resolutionRating: int("resolutionRating"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -10,6 +10,8 @@ import { trpc } from "@/lib/trpc";
 import { MapView } from "@/components/Map";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const INITIAL_CENTER = { lat: 30.0444, lng: 31.2357 };
 const INITIAL_ZOOM = 14;
@@ -17,6 +19,8 @@ const INITIAL_ZOOM = 14;
 export default function SubmitIssue() {
   const [, navigate] = useLocation();
   const { isAuthenticated } = useAuth();
+  const { t } = useLanguage();
+  const { sendNotification } = usePushNotifications();
 
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [address, setAddress] = useState("");
@@ -149,22 +153,22 @@ export default function SubmitIssue() {
     e.preventDefault();
 
     if (!isAuthenticated) {
-      toast.error("Please log in to report an issue");
+      toast.error(t("nav.login"));
       return;
     }
 
     if (!selectedLocation) {
-      toast.error("Please select a location on the map");
+      toast.error(t("submit.selectLocationAlert"));
       return;
     }
 
     if (!title.trim()) {
-      toast.error("Please enter a title");
+      toast.error(t("submit.issueTitlePlaceholder"));
       return;
     }
 
     if (!description.trim()) {
-      toast.error("Please enter a description");
+      toast.error(t("submit.descPlaceholder"));
       return;
     }
 
@@ -180,11 +184,15 @@ export default function SubmitIssue() {
         imageUrl: imageUrl || undefined,
       });
 
-      toast.success("Issue reported successfully!");
+      sendNotification("CivicPulse Issue Reported", {
+        body: `Your issue "${title.trim()}" was submitted successfully. Thank you!`
+      });
+
+      toast.success(t("submit.success"));
       navigate("/map");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create issue:", error);
-      toast.error("Failed to report issue. Please try again.");
+      toast.error(error.message || t("submit.fail"));
     }
   };
 
@@ -203,12 +211,12 @@ export default function SubmitIssue() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 leading-tight">Report an Issue</h1>
-              <p className="text-xs text-slate-500 font-medium">Help us improve your community</p>
+              <h1 className="text-xl font-bold text-slate-900 leading-tight">{t("submit.title")}</h1>
+              <p className="text-xs text-slate-500 font-medium">{t("submit.desc")}</p>
             </div>
           </div>
           <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 px-3 py-1">
-            Step 1: Locate Issue
+            {t("submit.location")}
           </Badge>
         </div>
       </div>
@@ -235,7 +243,7 @@ export default function SubmitIssue() {
                     <div className="absolute inset-x-0 bottom-8 flex justify-center z-[1000] px-4">
                       <div className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce">
                         <MapPin className="h-5 w-5 text-blue-400" />
-                        <span className="text-sm font-medium">Tap on the map to pin the issue location</span>
+                        <span className="text-sm font-medium">{t("submit.locationDesc")}</span>
                       </div>
                     </div>
                   )}
@@ -253,12 +261,12 @@ export default function SubmitIssue() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-slate-900">Selected Location</h3>
+                        <h3 className="font-bold text-slate-900">{t("submit.location")}</h3>
                         <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none">
                           Verified
                         </Badge>
                       </div>
-                      <p className="text-slate-600 mt-2 text-sm leading-relaxed">{isGeocoding ? "Fetching accurate address..." : (address || "Location selected")}</p>
+                      <p className="text-slate-600 mt-2 text-sm leading-relaxed">{isGeocoding ? t("general.loading") : (address || t("submit.location"))}</p>
                       <div className="flex gap-4 mt-3 text-[10px] font-mono text-slate-400">
                         <span>LAT: {selectedLocation?.lat.toFixed(6)}</span>
                         <span>LNG: {selectedLocation?.lng.toFixed(6)}</span>
@@ -276,17 +284,17 @@ export default function SubmitIssue() {
               <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500" />
               <CardContent className="p-8">
                 <div className="mb-8">
-                  <h2 className="text-2xl font-black text-slate-900">Issue Details</h2>
-                  <p className="text-slate-400 text-sm mt-1">Provide information about the problem</p>
+                  <h2 className="text-2xl font-black text-slate-900">{t("submit.title")}</h2>
+                  <p className="text-slate-400 text-sm mt-1">{t("submit.desc")}</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
-                      Issue Title
+                      {t("submit.issueTitle")}
                     </label>
                     <Input
-                      placeholder="e.g., Street Light Not Working"
+                      placeholder={t("submit.issueTitlePlaceholder")}
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       className="rounded-xl border-slate-200 focus:ring-blue-500 h-12 transition-all"
@@ -296,18 +304,19 @@ export default function SubmitIssue() {
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
-                      Category
+                      {t("submit.category")}
                     </label>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full h-12 px-4 border border-slate-200 rounded-xl bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                      className="w-full rounded-xl border-slate-200 focus:ring-blue-500 h-12 px-3 text-sm bg-white"
+                      required
                     >
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
+                      <option value="Roads">{t("submit.catRoads")}</option>
+                      <option value="Water">{t("submit.catWater")}</option>
+                      <option value="Electricity">{t("submit.catElectricity")}</option>
+                      <option value="Sanitation">{t("submit.catSanitation")}</option>
+                      <option value="Other">{t("submit.catOther")}</option>
                     </select>
                   </div>
 
@@ -384,10 +393,10 @@ export default function SubmitIssue() {
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">
-                      Description
+                      {t("submit.description")}
                     </label>
                     <Textarea
-                      placeholder="Give us more context about the situation..."
+                      placeholder={t("submit.descPlaceholder")}
                       value={description}
                       onChange={handleDescriptionChange}
                       className="rounded-xl border-slate-200 focus:ring-blue-500 transition-all min-h-[120px] resize-none"
@@ -406,19 +415,20 @@ export default function SubmitIssue() {
 
                   <Button
                     type="submit"
-                    disabled={!selectedLocation || createIssueMutation.isPending}
-                    className={`w-full h-14 rounded-2xl font-black text-lg shadow-xl transition-all duration-500 ${
-                      !selectedLocation 
-                      ? "bg-slate-200 text-slate-400" 
-                      : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 hover:translate-y-[-2px]"
-                    }`}
+                    className="w-full h-14 text-base font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    disabled={createIssueMutation.isPending || !selectedLocation}
                   >
                     {createIssueMutation.isPending ? (
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        SUBMITTING...
-                      </div>
-                    ) : "SUBMIT REPORT"}
+                      <span className="flex items-center gap-2">
+                        <span className="h-5 w-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        {t("submit.submitting")}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Plus className="h-5 w-5" />
+                        {t("submit.button")}
+                      </span>
+                    )}
                   </Button>
                 </form>
               </CardContent>

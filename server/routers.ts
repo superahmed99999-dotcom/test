@@ -24,11 +24,16 @@ import {
   updateUserSettings,
   getUserByEmail,
   getDb,
+  rateIssueResolution,
 } from "./db";
 import { issues, users } from "../drizzle/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 import { hashPassword, comparePasswords } from "./_core/password";
-import { analyzeIssueRisk, shouldMarkAsCritical } from "./services/aiRiskService";
+import { 
+  analyzeIssueRisk, 
+  shouldMarkAsCritical,
+  detectDuplicateIssue
+} from "./services/aiRiskService";
 import { sdk } from "./_core/sdk";
 import { ONE_YEAR_MS } from "@shared/const";
 
@@ -149,8 +154,8 @@ export const appRouter = router({
              throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to ensure admin user exists" });
            }
 
-           const sessionToken = await sdk.createSessionToken(adminUser.openId, {
-             name: adminUser.name,
+           const sessionToken = await sdk.createSessionToken(adminUser!.openId, {
+             name: adminUser!.name || undefined,
              expiresInMs: ONE_YEAR_MS,
            });
 
@@ -182,7 +187,7 @@ export const appRouter = router({
         }
 
         const sessionToken = await sdk.createSessionToken(user.openId, {
-          name: user.name,
+          name: user.name || undefined,
           expiresInMs: ONE_YEAR_MS,
         });
 
@@ -232,6 +237,17 @@ export const appRouter = router({
       }))
       .mutation(async ({ input, ctx }) => {
         try {
+          // AI Duplicate Detection
+          const recentIssues = await getIssues(20, 0); // Get recent 20 issues for comparison
+          const duplicateAnalysis = await detectDuplicateIssue(input.title, input.description, input.category, recentIssues);
+          
+          if (duplicateAnalysis.isDuplicate) {
+             throw new TRPCError({ 
+               code: "CONFLICT", 
+               message: `This issue appears to be a duplicate of an existing report (ID: ${duplicateAnalysis.duplicateOfId || 'unknown'}). AI Reasoning: ${duplicateAnalysis.reasoning}` 
+             });
+          }
+
           const riskAnalysis = await analyzeIssueRisk(input.title, input.description, input.category, input.severity);
           const isCritical = await shouldMarkAsCritical(input.title, input.description, input.category, riskAnalysis.riskLevel);
 
@@ -250,8 +266,9 @@ export const appRouter = router({
             status: "open",
             upvotes: 0,
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error("Failed to create issue:", error);
+          if (error instanceof TRPCError) throw error;
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create issue" });
         }
       }),
@@ -281,6 +298,21 @@ export const appRouter = router({
         if (issue.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Ownership check failed" });
         await deleteIssue(input);
         return { success: true };
+      }),
+
+    rateResolution: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        rating: z.number().min(1).max(5)
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const issue = await getIssueById(input.id);
+        if (!issue) throw new TRPCError({ code: "NOT_FOUND", message: "Issue not found" });
+        if (issue.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Only the reporter can rate the resolution" });
+        if (issue.status !== "resolved") throw new TRPCError({ code: "BAD_REQUEST", message: "Can only rate resolved issues" });
+        if (issue.resolutionRating !== null) throw new TRPCError({ code: "BAD_REQUEST", message: "Issue is already rated" });
+        
+        return await rateIssueResolution(input.id, input.rating);
       }),
 
     upvote: protectedProcedure
