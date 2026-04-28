@@ -280,9 +280,15 @@ export const appRouter = router({
         } catch (error: any) {
           console.error("Failed to create issue:", error);
           if (error instanceof TRPCError) throw error;
+          let errorMessage = error.message || 'Unknown error';
+          // Sanitize: remove large Base64 strings if present in the error message
+          if (errorMessage.length > 500) {
+            errorMessage = errorMessage.substring(0, 500) + "... (truncated)";
+          }
+          
           throw new TRPCError({ 
             code: "INTERNAL_SERVER_ERROR", 
-            message: `Failed to create issue: ${error.message || 'Unknown error'}` 
+            message: `Failed to create issue: ${errorMessage}` 
           });
         }
       }),
