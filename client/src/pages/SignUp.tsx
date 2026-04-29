@@ -39,8 +39,8 @@ export default function SignUp() {
         toast.success("Account validation started!");
         if (result.demoOtp) {
           // Show the OTP directly in the UI for the demo
-          toast.info(`🔔 Demo Mode OTP: ${result.demoOtp}`, {
-            duration: 10000,
+          toast.info(` Demo Mode OTP: ${result.demoOtp} (This code is only visible to you)`, {
+            duration: 30000, // Increased to 30 seconds
             style: { fontSize: '18px', fontWeight: 'bold' }
           });
         }
