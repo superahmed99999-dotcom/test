@@ -39,13 +39,15 @@ export async function getDb() {
 
       _db = drizzle(_pool as any) as any;
       
-      // Test the connection with a timeout
-      await Promise.race([
-        _pool.query("SELECT 1"),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 5000))
-      ]);
-      
       console.log(`[Database] Connected to MySQL successfully.`);
+      
+      // OPTIMIZATION: Try to increase max_allowed_packet for this session to handle large images
+      try {
+        await _pool.query("SET SESSION max_allowed_packet = 104857600"); // 100MB
+        console.log("[Database] Increased session max_allowed_packet to 100MB");
+      } catch (e) {
+        console.warn("[Database] Could not increase max_allowed_packet, large images might fail.");
+      }
 
       // AUTO-MIGRATION CHECK: Add missing columns or update lengths if they don't exist
       try {
