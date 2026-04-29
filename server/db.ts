@@ -52,74 +52,37 @@ export async function getDb() {
         console.log("[Database] Running auto-migration check...");
         const [issuesColumns] = await _pool.query("SHOW COLUMNS FROM issues");
         const issuesColDetails = (issuesColumns as any[]);
+        const issueColNames = issuesColDetails.map(c => c.Field);
         
-        // Update address length to 512
+        // Helper to add column if missing
+        const ensureColumn = async (name: string, definition: string) => {
+          if (!issueColNames.includes(name)) {
+            console.log(`[Database] Adding missing column 'issues.${name}'...`);
+            await _pool!.query(`ALTER TABLE issues ADD COLUMN ${name} ${definition}`);
+          }
+        };
+
+        // Ensure address length
         const addressCol = issuesColDetails.find(c => c.Field === 'address');
         if (addressCol && addressCol.Type.includes('varchar(255)')) {
-          console.log("[Database] Updating issues.address length to 512...");
           await _pool.query("ALTER TABLE issues MODIFY COLUMN address VARCHAR(512) NOT NULL");
         }
 
-        // Update imageUrl to LONGTEXT
+        // Ensure imageUrl type
         const imageUrlCol = issuesColDetails.find(c => c.Field === 'imageUrl');
         if (imageUrlCol && !imageUrlCol.Type.includes('longtext')) {
-          console.log("[Database] Updating issues.imageUrl to LONGTEXT...");
           await _pool.query("ALTER TABLE issues MODIFY COLUMN imageUrl LONGTEXT");
         }
 
-        const [usersColumns] = await _pool.query("SHOW COLUMNS FROM users");
-        const userColNames = (usersColumns as any[]).map(c => c.Field);
-        
-        if (!userColNames.includes("language")) {
-          await _pool.query("ALTER TABLE users ADD COLUMN language VARCHAR(10) DEFAULT 'en' NOT NULL");
-          console.log("[Database] Added 'language' column.");
-        }
-        if (!userColNames.includes("theme")) {
-          await _pool.query("ALTER TABLE users ADD COLUMN theme VARCHAR(20) DEFAULT 'light' NOT NULL");
-          console.log("[Database] Added 'theme' column.");
-        }
-        if (!userColNames.includes("notificationSettings")) {
-          await _pool.query("ALTER TABLE users ADD COLUMN notificationSettings TEXT");
-          // Initialize with default JSON
-          await _pool.query("UPDATE users SET notificationSettings = '{\"statusChanges\":true,\"newComments\":true,\"emailDigest\":true}' WHERE notificationSettings IS NULL");
-          console.log("[Database] Added 'notificationSettings' column.");
-        }
-        if (!userColNames.includes("password")) {
-          await _pool.query("ALTER TABLE users ADD COLUMN password TEXT");
-          console.log("[Database] Added 'password' column.");
-        }
+        // Add all potential missing columns
+        await ensureColumn("status", "ENUM('open', 'in-progress', 'resolved') DEFAULT 'open' NOT NULL");
+        await ensureColumn("severity", "ENUM('low', 'medium', 'high') DEFAULT 'medium' NOT NULL");
+        await ensureColumn("riskLevel", "ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium' NOT NULL");
+        await ensureColumn("isHidden", "INT DEFAULT 0 NOT NULL");
+        await ensureColumn("upvotes", "INT DEFAULT 0 NOT NULL");
+        await ensureColumn("resolutionRating", "INT DEFAULT NULL");
 
-        const issueColNames = (issuesColumns as any[]).map(c => c.Field);
-        if (!issueColNames.includes("riskLevel")) {
-          await _pool.query("ALTER TABLE issues ADD COLUMN riskLevel ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium' NOT NULL");
-          console.log("[Database] Added 'riskLevel' column to issues.");
-        }
-        if (!issueColNames.includes("isHidden")) {
-          await _pool.query("ALTER TABLE issues ADD COLUMN isHidden INT DEFAULT 0 NOT NULL");
-          console.log("[Database] Added 'isHidden' column to issues.");
-        }
-        if (!issueColNames.includes("resolutionRating")) {
-          await _pool.query("ALTER TABLE issues ADD COLUMN resolutionRating INT DEFAULT NULL");
-          console.log("[Database] Added 'resolutionRating' column to issues.");
-        }
-        if (!issueColNames.includes("upvotes")) {
-          await _pool.query("ALTER TABLE issues ADD COLUMN upvotes INT DEFAULT 0 NOT NULL");
-          console.log("[Database] Added 'upvotes' column to issues.");
-        }
-
-        // Create otp_codes table if it doesn't exist
-        await _pool.query(`
-          CREATE TABLE IF NOT EXISTS otp_codes (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            email VARCHAR(320) NOT NULL,
-            code VARCHAR(6) NOT NULL,
-            expiresAt TIMESTAMP NOT NULL,
-            isUsed INT DEFAULT 0 NOT NULL,
-            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-          )
-        `);
-        console.log("[Database] Ensured 'otp_codes' table exists.");
-
+        console.log("[Database] Schema check completed.");
       } catch (migrateError) {
         console.error("[Database] Auto-migration check failed:", migrateError);
       }
