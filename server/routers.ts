@@ -298,14 +298,27 @@ export const appRouter = router({
             isHidden: isHidden,
           });
         } catch (error: any) {
-          console.error("Failed to create issue:", error);
-          if (error instanceof TRPCError) throw error;
-          let errorMessage = error.message || 'Unknown error';
-          // Sanitize: remove large Base64 strings if present in the error message
-          if (errorMessage.length > 500) {
-            errorMessage = errorMessage.substring(0, 500) + "... (truncated)";
-          }
+          // Log full error to server console for debugging
+          console.error("[ISSUES:CREATE] Detailed Error:", error);
           
+          if (error instanceof TRPCError) throw error;
+          
+          // Extract a cleaner error message for the user
+          // Drizzle errors often include the full query and params in .message
+          // while .sqlMessage contains the actual MySQL error reason
+          let errorMessage = error.sqlMessage || error.message || 'Unknown error';
+          
+          // If the message is still the giant Drizzle "Failed query" string, 
+          // try to extract just the part after "params: [...]" if possible, 
+          // or just provide the first 200 chars and the last 200 chars.
+          if (errorMessage.includes("Failed query:") && !error.sqlMessage) {
+            // If we don't have sqlMessage, the reason might be at the very end of the message
+            const parts = errorMessage.split('\n');
+            if (parts.length > 1) {
+              errorMessage = parts[parts.length - 1]; // Take the last line which often has the reason
+            }
+          }
+
           throw new TRPCError({ 
             code: "INTERNAL_SERVER_ERROR", 
             message: `Failed to create issue: ${errorMessage}` 
