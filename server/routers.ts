@@ -304,18 +304,17 @@ export const appRouter = router({
           if (error instanceof TRPCError) throw error;
           
           // Extract a cleaner error message for the user
-          // Drizzle errors often include the full query and params in .message
-          // while .sqlMessage contains the actual MySQL error reason
           let errorMessage = error.sqlMessage || error.message || 'Unknown error';
           
-          // If the message is still the giant Drizzle "Failed query" string, 
-          // try to extract just the part after "params: [...]" if possible, 
-          // or just provide the first 200 chars and the last 200 chars.
-          if (errorMessage.includes("Failed query:") && !error.sqlMessage) {
-            // If we don't have sqlMessage, the reason might be at the very end of the message
-            const parts = errorMessage.split('\n');
-            if (parts.length > 1) {
-              errorMessage = parts[parts.length - 1]; // Take the last line which often has the reason
+          // Sanitize: If the message contains a giant Base64 string, strip it out
+          // Look for patterns like data:image/... or just very long strings in the params section
+          if (errorMessage.length > 500) {
+            // Regex to find and replace long base64-like strings (longer than 100 chars)
+            errorMessage = errorMessage.replace(/data:image\/[^;]+;base64,[a-zA-Z0-9+/=]+/g, "[IMAGE_DATA_REMOVED]");
+            
+            // If it's still too long, it might be a raw base64 string in the params list
+            if (errorMessage.length > 1000) {
+              errorMessage = errorMessage.substring(0, 500) + "... (truncated for readability, check server logs)";
             }
           }
 
