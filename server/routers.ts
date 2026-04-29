@@ -306,21 +306,22 @@ export const appRouter = router({
           // Extract a cleaner error message for the user
           let errorMessage = error.sqlMessage || error.message || 'Unknown error';
           
-          // Sanitize: If the message contains a giant Base64 string, strip it out
-          // Look for patterns like data:image/... or just very long strings in the params section
-          if (errorMessage.length > 500) {
-            // Regex to find and replace long base64-like strings (longer than 100 chars)
-            errorMessage = errorMessage.replace(/data:image\/[^;]+;base64,[a-zA-Z0-9+/=]+/g, "[IMAGE_DATA_REMOVED]");
-            
-            // If it's still too long, it might be a raw base64 string in the params list
-            if (errorMessage.length > 1000) {
-              errorMessage = errorMessage.substring(0, 500) + "... (truncated for readability, check server logs)";
-            }
+          // Drizzle/mysql2 error messages are usually: "Failed query: [SQL] params: [PARAMS] - [REASON]"
+          // We only want the [REASON] part if it exists
+          if (errorMessage.includes(" - ")) {
+            const parts = errorMessage.split(" - ");
+            errorMessage = parts[parts.length - 1]; // The actual error reason is usually at the end
+          }
+          
+          // If it still looks like a query, try to find the very last sentence
+          if (errorMessage.includes("Failed query:")) {
+             const lines = errorMessage.split("\n");
+             errorMessage = lines[lines.length - 1];
           }
 
           throw new TRPCError({ 
             code: "INTERNAL_SERVER_ERROR", 
-            message: `Failed to create issue: ${errorMessage}` 
+            message: `Database Error: ${errorMessage}` 
           });
         }
       }),
